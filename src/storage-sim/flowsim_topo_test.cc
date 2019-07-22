@@ -6,14 +6,15 @@
 
 void TestTopologySimulator::InitializeLinks(){
     for (uint64_t host_id = 0; host_id < rack_count * hosts_per_rack; host_id++) {
-        links.emplace(std::make_pair(std::make_tuple(HOST_HOST, host_id), Link(link_speed)));
+        links.emplace(std::make_pair(std::make_tuple(HOST_TOR, host_id), Link(link_speed)));
+        links.emplace(std::make_pair(std::make_tuple(TOR_HOST, host_id), Link(link_speed)));
     }    
 }
 
 std::vector<link_id_t> TestTopologySimulator::GetLinkIds(const Flow &flow) const{
     std::vector<link_id_t> linkid_list;
-    linkid_list.emplace_back(std::make_tuple(HOST_HOST, flow.src_host));
-
+    linkid_list.emplace_back(std::make_tuple(HOST_TOR, flow.src_host));
+    linkid_list.emplace_back(std::make_tuple(TOR_HOST, flow.dst_host));
     return linkid_list;
 }
 

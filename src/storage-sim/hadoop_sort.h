@@ -16,10 +16,10 @@
 
 using namespace std;
 
-class HadoopSort {
+class SimpleJob {
 private:
-    HadoopDataset dataset;
-    HadoopCluster cluster;
+    HDFSDriver dataset;
+    SimpleCluster cluster;
     ISimulator *simulator;
 
     double map_time = 88.315;

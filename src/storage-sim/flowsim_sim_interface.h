@@ -100,7 +100,7 @@ private:
     }
 
 protected:
-    HadoopCluster cluster;
+    SimpleCluster cluster;
     uint64_t rack_count;
     uint64_t hosts_per_rack;
     double link_speed;
@@ -128,7 +128,7 @@ protected:
     }
 
 public:
-    ISimulator(HadoopCluster cluster)
+    ISimulator(SimpleCluster cluster)
         : cluster(cluster), rack_count(cluster.rack_count),
           hosts_per_rack(cluster.nodes_per_rack), link_speed(cluster.link_speed),
           time_now(0), flow_next(nullptr) {}

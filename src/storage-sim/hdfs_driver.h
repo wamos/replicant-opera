@@ -16,17 +16,17 @@
 
 using namespace std;
 
-struct HadoopDataset {
-    static const uint64_t DEFAULT_BLOCK_SIZE = (uint64_t)5 * 1024 * 1024 * 1024;
+struct HDFSDriver {
+    static const uint64_t DEFAULT_BLOCK_SIZE = GB(4);
     static const int DEFAULT_REPLICA_COUNT = 3;
 
-    HadoopCluster cluster;
+    SimpleCluster cluster;
     uint64_t file_count;
     uint64_t file_size;
     uint64_t block_size;
     int replica_count;
 
-    HadoopDataset(HadoopCluster cluster, uint64_t file_count, uint64_t file_size,
+    HDFSDriver(SimpleCluster cluster, uint64_t file_count, uint64_t file_size,
                     uint64_t block_size = DEFAULT_BLOCK_SIZE,
                     int replica_count = DEFAULT_REPLICA_COUNT)
         : cluster(cluster),

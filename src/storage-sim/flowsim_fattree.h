@@ -69,7 +69,7 @@ private:
 public:
     FatTreeSimulator();
 
-    FatTreeSimulator(HadoopCluster cluster,
+    FatTreeSimulator(SimpleCluster cluster,
                      int over_subscription = 1)
         : ISimulator(cluster)
     {

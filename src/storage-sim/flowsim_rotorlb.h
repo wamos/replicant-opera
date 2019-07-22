@@ -363,7 +363,7 @@ private:
     }
 
 public:
-    RotorNetSimulator(HadoopCluster cluster) : ISimulator(cluster),
+    RotorNetSimulator(SimpleCluster cluster) : ISimulator(cluster),
             channel_count((int)rack_count),
             cycle_time(total_slot_time * channel_count) {
         printf("[Config] RotorNet, %" PRIu64 " racks, %" PRIu64 " hosts/rack, %f Gbps link.\n",

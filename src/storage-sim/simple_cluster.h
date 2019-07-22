@@ -8,6 +8,7 @@
 
 struct SimpleNode {
     std::map<uint64_t, MapTask *> map_tasks;
+    std::map<uint64_t, Task *> completed_tasks;
 
     SimpleNode() {
     }

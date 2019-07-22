@@ -2,9 +2,9 @@
 #define FLOW_SIM_TEST_TOPO_H
 
 #include <vector>
-#include "cluster.h"
-
+#include "simple_cluster.h"
 #include "flowsim_sim_interface.h"
+
 class TestTopologySimulator : public ISimulator {
 private:
     void InitializeLinks() override{}
@@ -16,7 +16,7 @@ private:
 public:
     TestTopologySimulator();
 
-    TestTopologySimulator(HadoopCluster cluster)
+    TestTopologySimulator(SimpleCluster cluster)
         : ISimulator(cluster){
         printf("[Config] Test-Topology, %" PRIu64 " racks, %" PRIu64 " hosts/rack, %f Gbps link.\n",
               rack_count, hosts_per_rack, link_speed / Gb(1));

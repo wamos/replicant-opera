@@ -4,35 +4,32 @@
 #include <cstring>
 
 //#include "flowsim_hadoop.h"
-#include "cluster.h"
-#include "hadoop_sort.h"
+#include "simple_cluster.h"
+#include "simple_job.h"
 #include "hdfs_driver.h"
 #include "flowsim_fattree.h"
 #include "flowsim_rotorlb.h"
+#include "flowsim_config_macro.h"
+#include "flowsim_topo_test.h"
 
-static uint64_t RACK_COUNT = 256;
-static uint64_t NODES_PER_RACK = 8;
-static double LINK_SPEED = Gb(10);
-
-static int MAP_CORE_COUNT = 8;
-static int REDUCE_CORE_COUNT = 1;
-
-static uint64_t FILE_COUNT = 2 * 1024;
-static uint64_t FILE_SIZE = GB(40);
-
+/*
 static inline void print_usage_and_exit(char *argv0) {
     fprintf(stderr, "Usage: %s [fat_tree <k>|rotor_lb]\n", argv0);
     fprintf(stderr, "\tk: over-subscription factor\n");
     exit(EXIT_FAILURE);
 }
+*/
 
 int main(int argc, char *argv[]) {
-    if (argc < 2)
+    /*if (argc < 2)
         print_usage_and_exit(argv[0]);
+    */
 
-    HadoopCluster cluster(RACK_COUNT, NODES_PER_RACK, LINK_SPEED, MAP_CORE_COUNT, REDUCE_CORE_COUNT);
+    SimpleCluster cluster(RACK_COUNT, NODES_PER_RACK, LINK_SPEED, CORE_COUNT);
     ISimulator *simulator = nullptr;
-    if (strcmp(argv[1], "fat_tree") == 0) {
+    simulator = new TestTopologySimulator(cluster);
+    
+    /*if (strcmp(argv[1], "fat_tree") == 0) {
         if (argc < 3)
             print_usage_and_exit(argv[0]);
         int over_subscription = atoi(argv[2]);
@@ -42,11 +39,10 @@ int main(int argc, char *argv[]) {
         simulator = new RotorNetSimulator(cluster);
     else
         print_usage_and_exit(argv[0]);
-
-    HadoopDataset dataset(cluster, FILE_COUNT, FILE_SIZE);
-    HadoopSort hadoopSort(dataset, simulator);
-
-    hadoopSort.Run();
+    */
+    HDFSDriver dataset(cluster, FILE_COUNT, FILE_SIZE);
+    SimpleJob job(dataset, simulator);
+    job.Run();
 
     return 0;
 }
