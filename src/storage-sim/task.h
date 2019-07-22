@@ -1,18 +1,27 @@
-static uint64_t global_task_id = 0;
+#ifndef FLOW_SIM_TASK_H
+#define FLOW_SIM_TASK_H
+#include <limits>
+#include <string>
+#include <vector>
+#include <tuple>
+
 struct Task {
+    static uint64_t global_task_id;
     uint64_t task_id;
     uint64_t host_id;
     double start_time;
     double end_time;
-    vector<uint64_t> flows;
-    string type;
+    std::vector<uint64_t> flows;
+    std::string type;
 
-    Task(uint64_t host_id, double start_time, string type)
-            : host_id(host_id), start_time(start_time), end_time(numeric_limits<double>::max()), type(std::move(type))
+    Task(uint64_t host_id, double start_time, std::string type)
+            : host_id(host_id), start_time(start_time), end_time(std::numeric_limits<double>::max()), type(std::move(type))
     {
         task_id = global_task_id++;
     }
 };
+
+//uint64_t Task::global_task_id = 0;
 
 struct MapTask : Task {
     uint64_t file_id;
@@ -27,11 +36,12 @@ struct MapTask : Task {
 };
 
 struct ReduceTask : Task {
-    vector<uint64_t> file_ids;
+    std::vector<uint64_t> file_ids;
 
     ReduceTask() : Task(static_cast<uint64_t>(-1), 0, "reduce") {}
 
-    ReduceTask(uint64_t host_id, double start_time, vector<uint64_t> file_ids, string sub_task = "")
+    ReduceTask(uint64_t host_id, double start_time, std::vector<uint64_t> file_ids, std::string sub_task = "")
             : Task(host_id, start_time, "reduce" + sub_task), file_ids(file_ids) {}
 };
 
+#endif FLOW_SIM_TASK_H

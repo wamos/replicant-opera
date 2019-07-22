@@ -35,13 +35,14 @@ private:
             links.emplace(make_pair(make_tuple(TOR_HOST, host_id), Link(link_speed, channel_count)));
         }
 
-        for (size_t src_rack = 0; src_rack < rack_count; src_rack++)
+        for (size_t src_rack = 0; src_rack < rack_count; src_rack++){
             for (size_t dst_rack = 0; dst_rack < rack_count; dst_rack++) {
                 if (src_rack == dst_rack)
                     continue;
                 uint64_t tor_tor_id = GetInterTorLinkId(src_rack, dst_rack);
                 links.emplace(make_pair(make_tuple(TOR_TOR, tor_tor_id), Link(tor_link_speed, channel_count)));
             }
+        }
     }
 
     vector<link_id_t> GetLinkIds(const Flow &flow) const override {

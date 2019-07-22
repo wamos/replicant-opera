@@ -1,5 +1,11 @@
-static uint64_t global_flow_id = 0;
+#ifndef FLOW_SIM_FLOW_H
+#define FLOW_SIM_FLOW_H
+
+#include <limits>
+#include "flowsim_config_macro.h"
+
 struct Flow {
+    static uint64_t global_flow_id;
     uint64_t flow_id;
     double time_start;
     double time_end;
@@ -15,7 +21,7 @@ struct Flow {
     Flow(uint64_t src_host, uint64_t src_tor, uint64_t dst_host, uint64_t dst_tor, uint64_t size, double timestamp, Task *task) {
         this->flow_id = global_flow_id++;
         this->time_start = timestamp;
-        this->time_end = numeric_limits<double>::max();
+        this->time_end = std::numeric_limits<double>::max();
         this->total_bytes = size;
         this->completed_bytes = 0;
 //        this->current_rate = 0;
@@ -45,4 +51,4 @@ struct Flow {
     }
 };
 
-
+#endif  //FLOW_SIM_FLOW_H

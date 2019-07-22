@@ -1,7 +1,15 @@
+#ifndef FLOW_SIM_CLUSTER_H
+#define FLOW_SIM_CLUSTER_H
+
+#include "task.h"
+#include "flowsim_config_macro.h"
+#include <cinttypes>
+#include <map>
+
 struct HadoopNode {
-    map<uint64_t, MapTask *> map_tasks;
-    map<uint64_t, ReduceTask *> reduce_tasks;
-    map<uint64_t, Task *> completed_tasks;
+    std::map<uint64_t, MapTask *> map_tasks;
+    std::map<uint64_t, ReduceTask *> reduce_tasks;
+    std::map<uint64_t, Task *> completed_tasks;
 
     HadoopNode() {
     }
@@ -20,7 +28,7 @@ struct HadoopCluster {
     double link_speed;
     int map_core_count;
     int reduce_core_count;
-    map<uint64_t, HadoopNode> hosts;
+    std::map<uint64_t, HadoopNode> hosts;
 
     HadoopCluster(uint64_t rack_count, uint64_t nodes_per_rack, double link_speed, int map_core_count, int reduce_core_count)
             : rack_count(rack_count),
@@ -50,3 +58,5 @@ struct HadoopCluster {
         return rack_id * this->nodes_per_rack + host_index;
     }
 };
+
+#endif // FLOW_SIM_CLUSTER_H

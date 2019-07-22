@@ -3,7 +3,10 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "flowsim_hadoop.h"
+//#include "flowsim_hadoop.h"
+#include "cluster.h"
+#include "hadoop_sort.h"
+#include "hdfs_driver.h"
 #include "flowsim_fattree.h"
 #include "flowsim_rotorlb.h"
 

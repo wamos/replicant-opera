@@ -3,6 +3,7 @@
 
 #include "flowsim_sim_interface.h"
 
+using namespace std;
 // This is a simplified Fat-Tree simulator. The network core is considered
 //  an idealized packet switch, with no over-subscription. ToRs are
 //  over-subscribed, i.e. ToR uplink capacity is 1/k * downlink capacity,
@@ -66,6 +67,8 @@ private:
     }
 
 public:
+    FatTreeSimulator();
+
     FatTreeSimulator(HadoopCluster cluster,
                      int over_subscription = 1)
         : ISimulator(cluster)
