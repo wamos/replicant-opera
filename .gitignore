@@ -1,3 +1,5 @@
 /.vscode/
 *.out
-
+test/
+src/build/
+src/storage-sim/build/

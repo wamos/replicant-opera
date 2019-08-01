@@ -9,6 +9,7 @@
 #include <ctime>
 #include <cinttypes>
 #include <cmath>
+#include <iostream>
 
 #include <algorithm>
 #include <limits>
@@ -19,6 +20,7 @@
 #include <vector>
 
 #include "flowsim_config_macro.h"
+#include "simple_cluster.h"
 #include "parallel_for.h"
 #include "flow.h"
 #include "link.h"
@@ -67,7 +69,7 @@ private:
                 }
             }
 
-            std::lock_guard lock(t_mutex);
+            std::lock_guard<std::mutex> lock(t_mutex);
             if (local_min_next_time < min_next_time) {
                 min_next_time = local_min_next_time;
                 flow_next = local_flow_next;
@@ -145,11 +147,19 @@ public:
         return &(this->flows.back());
     }
 
+    void printFlows(){
+        for(Flow f: flows){
+            std::cout << "flowid" << f.flow_id <<"src:"<< f.src_host <<", dst:" << f.dst_host << "\n";
+        }
+    }
+
     std::vector<const Flow *> RunToNextCompletion() {
         UpdateLinkDemand();
 
-        if (!GetNextFlowEvent())
+        if (!GetNextFlowEvent()){
+            std::cout<< "no next flow event\n";
             return std::vector<const Flow *>();
+        }
 
         double interval = min_next_time;
         double time_end = time_now + interval;
@@ -168,7 +178,7 @@ public:
                 }
             }
 
-            std::lock_guard lock(t_mutex);
+            std::lock_guard<std::mutex> lock(t_mutex);
             all_completed_flows[start] = completed_flows;
         });
 
@@ -195,9 +205,9 @@ public:
         std::map<std::string, std::map<double, size_t>> fcts;
         std::map<std::string, std::map<std::tuple<double, double>, size_t>> start_end;
         for (const auto &flow: flows) {
-            start_end[flow.task->type][std::make_tuple(flow.time_start, flow.time_end)]++;
+            start_end[flow.task->tag][std::make_tuple(flow.time_start, flow.time_end)]++;
             double fct = flow.time_end - flow.time_start;
-            fcts[flow.task->type][fct]++;
+            fcts[flow.task->tag][fct]++;
         }
 
         printf("Tag,FCT,Count\n");

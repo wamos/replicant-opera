@@ -2,10 +2,12 @@
 #define FLOW_SIM_FLOW_H
 
 #include <limits>
+#include "task.h"
 #include "flowsim_config_macro.h"
 
+static uint64_t global_flow_id = 0;
 struct Flow {
-    static uint64_t global_flow_id;
+    int used_channel;
     uint64_t flow_id;
     double time_start;
     double time_end;

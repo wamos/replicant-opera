@@ -64,7 +64,8 @@ private:
     }
 
     // Channel is the same as offset in rack,
-    //  i.e. at channel (time slot) 1, each task sends to rack + 1.
+    // i.e. at channel (time slot) 1, each task sends to rack + 1.
+    // no the case, we got a matching matrix now
     int GetFlowChannel(const Flow &flow) const {
         int src_rack = (int)cluster.GetRackId(flow.src_host);
         int dst_rack = (int)cluster.GetRackId(flow.dst_host);

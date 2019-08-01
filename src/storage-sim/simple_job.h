@@ -1,4 +1,4 @@
-#ifndef FLOW_SIM_HADOOP_SORT_H
+#ifndef FLOW_SIM_SIMPLEJOB_H
 #define FLOW_SIM_HADOOP_SORT_H
 
 #include <cstdint>
@@ -46,6 +46,7 @@ private:
 
         while (task_completed < task_total_count) {
             // All-to-all communication pattern, assigning a block to a flow
+
             for (auto &[host_id, node]: cluster.hosts) {
                 auto &src = host_id;
                 while (node.map_tasks.size() < (size_t)cluster.core_count/2 && !host_to_file_blocks[src].empty()) {
@@ -57,7 +58,6 @@ private:
                     for (uint64_t dst = 0; dst < cluster.GetTotalNodeCount(); dst++) {
                         if (src == dst)
                             continue;
-
                         task->flows.push_back(simulator->AddFlow(src, dst, dataset.block_size, flow_start, task)->flow_id);    
                     }
 
@@ -98,7 +98,7 @@ private:
         for (auto &[host_id, node]: cluster.hosts) {
             for (auto &[task_id, task]: node.completed_tasks) {
                 double fct = task->end_time - task->start_time;
-                fcts[task->type][fct]++;
+                fcts[task->tag][fct]++;
             }
         }
 
@@ -122,4 +122,4 @@ public:
     }
 };
 
-#endif  // FLOW_SIM_HADOOP_SORT_H
+#endif  //FLOW_SIM_HADOOP_SORT_H

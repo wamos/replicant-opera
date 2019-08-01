@@ -7,7 +7,7 @@
 
 class TestTopologySimulator : public ISimulator {
 private:
-    void InitializeLinks() override{}
+    void InitializeLinks() override;
     std::vector<link_id_t> GetLinkIds(const Flow &flow) const override;
     void IncrementLinkFlowCount(const Flow &flow) override;
     double GetFlowRemainingTime(const Flow &flow) const override;

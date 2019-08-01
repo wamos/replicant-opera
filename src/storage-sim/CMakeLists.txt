@@ -1,6 +1,12 @@
-cmake_minimum_required(VERSION 3.0.0 FATAL_ERROR)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -g -lrt")
-set(flow_sim_hadoop_SRC flow_sim_test.cc)
+cmake_minimum_required(VERSION 3.5.0 FATAL_ERROR)
+set(CC_FLAGS "-Wpedantic -Wconversion -Wall")
+#set(CMAKE_CXX_STANDARD_REQUIRED ON)
+#set(CMAKE_CXX_STANDARD 17)
+#set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread -g -lrt")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CC_FLAGS}")
+
+set(flow_sim_hadoop_SRC flowsim_main.cc flowsim_topo_test.cc)
 add_executable(flow_sim_hadoop ${flow_sim_hadoop_SRC})
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -g -lrt -fno-omit-frame-pointer -fsanitize=address")

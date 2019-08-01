@@ -6,6 +6,7 @@
 //#include "flowsim_hadoop.h"
 #include "simple_cluster.h"
 #include "simple_job.h"
+#include "seqread_job.h"
 #include "hdfs_driver.h"
 #include "flowsim_fattree.h"
 #include "flowsim_rotorlb.h"
@@ -41,7 +42,8 @@ int main(int argc, char *argv[]) {
         print_usage_and_exit(argv[0]);
     */
     HDFSDriver dataset(cluster, FILE_COUNT, FILE_SIZE);
-    SimpleJob job(dataset, simulator);
+    SimpleJob job(dataset,simulator);
+    //SeqReadJob job(dataset, simulator);
     job.Run();
 
     return 0;
