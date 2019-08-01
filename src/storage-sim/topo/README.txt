@@ -1,0 +1,16 @@
+% first line: <#servers> <#ToRdownlinks> <#ToRuplinks> <#ToRs>
+% second line: <#slices> <time_in_slice_type_0> <time_in_slice_type_1> ...
+% next #slices lines: tors that each uplink is connected to (-1 means disconnected)
+%   (***tors indexed from zero)
+% rest of lines: paths between ToRs
+%   Format: <slice number>
+%           <srcToR> <dstToR> <intermediate_queue0> <intermediate_queue1> ...
+%           <srcToR> <dstToR> <intermediate_queue0> <intermediate_queue1> ...
+%           ...
+%           <next slice number>
+%           ...
+%   (***slices, ToRs, queues indexed from zero)
+%   (***queue indexing starts from the first downlink (0) to the last
+%   downlink (#downlinks-1) to the first uplink (#downlinks) to the last
+%   uplink (#downlinks+#uplinks-1). The queues we record here will always
+%   correspond to uplinks, so their indexing will start at (#downlinks))
