@@ -53,7 +53,7 @@ struct SimpleCluster {
         }
     }
 
-    void ConfigSingleRack(){
+    /*void ConfigSingleRack(){
         rack_count=1;
         for (uint64_t rack_id = 0; rack_id < rack_count; rack_id++) {
             //node index = 0 is used as a client
@@ -63,14 +63,15 @@ struct SimpleCluster {
                 hosts[host_id] = SimpleNode();
             }
         }
-    }
+    }*/
 
     uint64_t GetTotalNodeCount() const {
         return rack_count * nodes_per_rack;
     }
 
     uint64_t GetTotalDatanodeCount() const {
-        return rack_count * nodes_per_rack - 2; // one for client node 0, one for namenode node 1; 
+        //return rack_count * nodes_per_rack - 2; // one for client node 0, one for namenode node 1; 
+        return rack_count * nodes_per_rack; // one for client node 0, one for namenode node 1; 
     }
 
     uint64_t GetRackId(uint64_t node_id) const {

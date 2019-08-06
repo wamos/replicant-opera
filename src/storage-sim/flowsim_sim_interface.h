@@ -119,13 +119,34 @@ protected:
         return host_id / hosts_per_rack;
     }
 
+    double GetFlowRate(const Flow &flow, std::tuple<int, int> channels) const {
+        std::vector<double> rates;
+        int src_channel = std::get<0>(channels);
+        int dst_channel = std::get<1>(channels);  
+        for (const auto &link_id: GetLinkIds(flow)) {
+            LinkType linktype = std::get<0>(link_id);
+            double rate;
+            if(linktype == HOST_TOR){
+                rate = links.at(link_id).GetRatePerFlow(src_channel); 
+            }
+            else if (linktype == TOR_HOST){
+                rate = links.at(link_id).GetRatePerFlow(dst_channel);
+            }
+            else{
+                rate = links.at(link_id).GetRatePerFlow(); // a fallback case
+            }
+            rates.push_back(rate);
+        }
+        return *min_element(rates.begin(), rates.end());
+    }
+
+
     double GetFlowRate(const Flow &flow, int channel = -1) const {
         std::vector<double> rates;
         for (const auto &link_id: GetLinkIds(flow)) {
             double rate = links.at(link_id).GetRatePerFlow(channel);
             rates.push_back(rate);
         }
-
         return *min_element(rates.begin(), rates.end());
     }
 

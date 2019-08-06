@@ -62,7 +62,8 @@ struct HDFSDriver {
     uint64_t placeBlocks(uint64_t file_id, uint64_t block_id, int replica_id){
         std::hash<uint64_t> hash_u64; //TODO: this is a idiot hash, will be need to replaced
         uint64_t block_hash = hash_u64(file_id) ^ hash_u64(block_id) ^ hash_u64(replica_id);
-        uint64_t block_location = (block_hash % cluster.GetTotalDatanodeCount()) + 2; // node0,1 are not datanodes
+        uint64_t block_location = (block_hash % cluster.GetTotalDatanodeCount()); 
+        std::cout << "file_id, block_id, block loc: " <<  +file_id << +block_id << +block_location << "\n";
         auto& vec = blocks_to_hosts[block_id];
         auto it = vec.end();
         vec.insert(it, block_location);

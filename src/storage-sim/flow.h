@@ -7,7 +7,8 @@
 
 static uint64_t global_flow_id = 0;
 struct Flow {
-    int used_channel;
+    int src_channel;
+    int dst_channel;
     uint64_t flow_id;
     double time_start;
     double time_end;
@@ -31,6 +32,16 @@ struct Flow {
 
         this->src_host = src_host;
         this->dst_host = dst_host;
+    }
+
+    void setChannels(int src_ch, int dst_ch){
+        src_channel = src_ch;
+        dst_channel = dst_ch;
+    }
+
+    void setChannels(std::tuple<int, int> channels){
+        src_channel = std::get<0>(channels);
+        dst_channel = std::get<1>(channels);
     }
 
     bool HasStarted(double now) const {

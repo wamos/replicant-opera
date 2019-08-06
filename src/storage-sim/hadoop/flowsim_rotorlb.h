@@ -9,6 +9,7 @@
 #define DEFAULT_SLOT_TIME 100e-6
 
 #define ROTOR_LB_TWO_HOP 1
+using namespace std;
 
 class RotorNetSimulator : public ISimulator {
 private:

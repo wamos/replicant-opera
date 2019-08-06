@@ -26,7 +26,7 @@ private:
     HDFSDriver dataset;
     SimpleCluster cluster;
     ISimulator *simulator;
-    uint64_t block_id = 0; 
+    uint64_t block_id; 
 
     double map_time = 88.315;
     double sort_time = 71.276;
@@ -45,7 +45,7 @@ private:
         for (uint64_t file_id = 0; file_id < dataset.file_count; file_id++) {
             std::vector<uint64_t> block_list;
             for (uint64_t block_offset = 0; block_offset < dataset.GetBlockCount(); block_offset++) {
-                uint64_t block_id = block_id + 1;
+                block_id = block_id + 1;
                 dataset.placeBlocks(file_id, block_id, 0);
                 dataset.placeBlocks(file_id, block_id, 1);
                 dataset.placeBlocks(file_id, block_id, 2);
@@ -53,6 +53,18 @@ private:
             }
             dataset.updateBlockList(file_id, block_list);
         }
+    }
+
+    void BlockWrite(uint64_t file_id){
+        std::vector<uint64_t> block_list;
+        for (uint64_t block_offset = 0; block_offset < dataset.GetBlockCount(); block_offset++) {
+            block_id = block_id + 1;
+            dataset.placeBlocks(file_id, block_id, 0);
+            dataset.placeBlocks(file_id, block_id, 1);
+            dataset.placeBlocks(file_id, block_id, 2);
+            block_list.push_back(block_id);
+        }
+        dataset.updateBlockList(file_id, block_list);
     }
 
     Flow* AddFlowForTask(RWTask* task, uint64_t host_id, double flow_start){
@@ -263,7 +275,7 @@ private:
 
 public:
     SeqReadJob(HDFSDriver dataset, ISimulator *simulator)
-        : dataset(dataset), cluster(dataset.cluster), simulator(simulator) {}
+        : dataset(dataset), cluster(dataset.cluster), simulator(simulator), block_id(0){}
 
     void Run() {
         runSeqRead();
