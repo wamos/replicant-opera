@@ -24,7 +24,8 @@ static const int CORE_COUNT = 16;
 
 static constexpr double DEFAULT_DUTY_CYCLE = 1.0; //0.9;
 static constexpr double DEFAULT_SLOT_TIME = 1000e-6;//200e-6;
-static const int ROTOR_CHANNEL = 4;
+static const int HOST_CHANNELS = 4;
+static const int ROTOR_SLOTS = 8;
 // each host has four 100 Gbps ports. 
 // e.g. Two dual-port ConnectX-5 NICs on a single host
 

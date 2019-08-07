@@ -46,23 +46,31 @@ public:
 
     double TestFlows(const Flow& flow){
         InitializeLinks();
-        IncrementLinkFlowCount(flow);
-        double time = GetFlowRemainingTime(flow);
-        return time;
+        //IncrementLinkFlowCount(flow);
+        std::vector vec = GetRatesPerCycle(flow);
+        std::cout << "GetRatesPerCycle\n";
+        for(auto rate: vec){
+           std::cout << rate <<",";     
+        }
+        std::cout << "\n";
+        //double time = GetFlowRemainingTime(flow);
+        return 0.0;
     }
 
     SingleLayerRotorSimulator();
 
     SingleLayerRotorSimulator(SimpleCluster cluster)
         : ISimulator(cluster),
-        channel_count(ROTOR_CHANNEL),
-        cycle_time(DEFAULT_SLOT_TIME*ROTOR_CHANNEL),
+        channel_count(HOST_CHANNELS),
+        num_slots(ROTOR_SLOTS),
+        cycle_time(DEFAULT_SLOT_TIME* ROTOR_SLOTS),
         filename(TOPO_FILENAME) 
         {
         printf("[Config] Test-Topology, %" PRIu64 " racks, %" PRIu64 " hosts/rack, %f Gbps link.\n",
               rack_count, hosts_per_rack, link_speed / Gb(1));
         //host_link_speed = link_speed;
-        //InitializeLinks();
+        num_slots = ROTOR_SLOTS;
+        InitializeLinks();
         InitializeMatchingMatrix();
     }
 

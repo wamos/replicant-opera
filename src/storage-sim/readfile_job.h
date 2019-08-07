@@ -73,38 +73,43 @@ private:
         std::cout<<"req dst_id:"<<+read_req->dst_id<<"\n";
         std::cout<<"req taskid:"<<+read_req->task_id<<"\n";
 
-        auto current_time =simulator->GetCurrentTime();
-        RWTask* task = client.pending_tasks.front();
-        if(task->dst_id > 10){
-            throw out_of_range("Illegal dst, we only have "+to_string(cluster.GetTotalNodeCount())+" nodes");
-        }
-        std::cout << "Task "<< task->task_id<<" launched\n"; 
-        auto f = simulator->AddFlow(client.hostid, task->dst_id, FILE_SIZE, FILE_SIZE, task);
-        task->flows.push_back(f->flow_id);
-        client.pending_tasks.pop();
-        client.running_tasks.insert(make_pair(task->task_id, task));
-        task_dispatched++;
-        simulator->printFlows();       
-
-        auto completed_flows = simulator->RunToNextCompletion();
-
-        for (auto *flow: completed_flows) {
-            auto host_id = flow->task->host_id;
-            auto &node = cluster.hosts[host_id];
-            if (node.running_tasks.find(flow->task->task_id) == node.running_tasks.end())
-                throw runtime_error("Task " + to_string(flow->task->task_id) + " not found.");
-            auto &flows = node.running_tasks[flow->task->task_id]->flows;
-            flows.erase(remove(flows.begin(), flows.end(), flow->flow_id), flows.end());
-            if (flows.empty()) {
-                flow->task->end_time = simulator->GetCurrentTime();
-                node.finished_tasks.insert(make_pair(flow->task->task_id, flow->task));
-                node.running_tasks.erase(flow->task->task_id);
-                flow->task->isCompleted = true;
-                std::cout << flow->task->task_id << " is completed\n";
-                task_completed++;
+        while (task_completed < task_total_count) {
+            while (client.pending_tasks.size() > 0 && client.running_tasks.size() < 2) {
+                auto current_time =simulator->GetCurrentTime();
+                auto flow_start = current_time;
+                RWTask* task = client.pending_tasks.front();
+                if(task->dst_id > 10){
+                    throw out_of_range("Illegal dst, we only have "+to_string(cluster.GetTotalNodeCount())+" nodes");
+                }
+                std::cout << "Task "<< task->task_id<<" launched\n"; 
+                auto f = simulator->AddFlow(client.hostid, task->dst_id, FILE_SIZE, flow_start, task);
+                task->flows.push_back(f->flow_id);
+                client.pending_tasks.pop();
+                client.running_tasks.insert(make_pair(task->task_id, task));
+                task_dispatched++;
             }
+            //simulator->printFlows();       
+
+            auto completed_flows = simulator->RunToNextCompletion();
+
+            for (auto *flow: completed_flows) {
+                auto host_id = flow->task->host_id;
+                auto &node = cluster.hosts[host_id];
+                if (node.running_tasks.find(flow->task->task_id) == node.running_tasks.end())
+                    throw runtime_error("Task " + to_string(flow->task->task_id) + " not found.");
+                auto &flows = node.running_tasks[flow->task->task_id]->flows;
+                flows.erase(remove(flows.begin(), flows.end(), flow->flow_id), flows.end());
+                if (flows.empty()) {
+                    flow->task->end_time = simulator->GetCurrentTime();
+                    node.finished_tasks.insert(make_pair(flow->task->task_id, flow->task));
+                    node.running_tasks.erase(flow->task->task_id);
+                    flow->task->isCompleted = true;
+                    std::cout << "task " << flow->task->task_id << " is completed\n";
+                    task_completed++;
+                }
+            }
+            std::cout << "Task dispatched:" << task_dispatched << ", Task compeleted:"<< task_completed << "\n";
         }
-        std::cout << "Task dispatched, Task compeleted" << task_dispatched << task_completed << "\n";
         std::cout << "Read Done\n";
     }
 

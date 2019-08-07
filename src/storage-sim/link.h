@@ -10,10 +10,23 @@ struct Link {
     std::vector<int> flow_counts; // # of flows in TDMA channels
 
     Link(double capacity, int channel_count = 0)
-        : capacity(capacity), flow_count(0), flow_counts(std::vector<int>(static_cast<unsigned long>(channel_count))) {}
+        //: capacity(capacity), flow_count(0), flow_counts(std::vector<int>(static_cast<unsigned long>(channel_count))) {}
+        : capacity(capacity), flow_count(0), flow_counts(std::vector<int>(channel_count)) {}
 
-    double GetRatePerFlow(int channel = -1) const {
-        auto total_flow_count = (channel >= 0 ? flow_counts[static_cast<unsigned long>(channel)] : 0) + flow_count;
+    double GetRatePerFlow(int channel) const {
+        double total_flow_count = 0;
+        if(channel >= 0 && flow_counts[channel]==0){
+            total_flow_count = 1;
+        }
+        else if (channel >= 0 && flow_counts[channel] > 0){
+            total_flow_count = flow_counts[channel];
+        }
+        else{
+          //std::cout << "invalid channel:"<< channel << "\n";
+          //std::cout << "total flow count:"<< total_flow_count << "\n";
+        }
+        //std::cout << "channel:"<< channel << "\n";
+        //auto total_flow_count = (channel >= 0 ? flow_counts[static_cast<unsigned long>(channel)] : 0) + flow_count;
         if (total_flow_count == 0)
             return 0;
         else
@@ -30,7 +43,8 @@ struct Link {
     }
 
     void IncrementFlowCount(int channel) {
-        flow_counts[static_cast<unsigned long>(channel)]++;
+        //flow_counts[static_cast<unsigned long>(channel)]++;
+        flow_counts[channel]++;
     }
 };
 

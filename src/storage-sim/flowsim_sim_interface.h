@@ -128,12 +128,15 @@ protected:
             double rate;
             if(linktype == HOST_TOR){
                 rate = links.at(link_id).GetRatePerFlow(src_channel); 
+                //std::cout << std::fixed << "HOST_TOR rate" << rate << "\n";
             }
             else if (linktype == TOR_HOST){
                 rate = links.at(link_id).GetRatePerFlow(dst_channel);
+                //std::cout << std::fixed << "TOR_HOST rate" << rate << "\n";
             }
             else{
-                rate = links.at(link_id).GetRatePerFlow(); // a fallback case
+                std::cout << "WTF, why are you here\n";
+                rate = links.at(link_id).GetRatePerFlow(-1); // a fallback case
             }
             rates.push_back(rate);
         }

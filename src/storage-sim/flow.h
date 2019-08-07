@@ -32,6 +32,8 @@ struct Flow {
 
         this->src_host = src_host;
         this->dst_host = dst_host;
+        src_channel = -1;
+        dst_channel = -1;
     }
 
     void setChannels(int src_ch, int dst_ch){

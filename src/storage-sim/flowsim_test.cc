@@ -15,10 +15,10 @@ int main(int argc, char *argv[]) {
     
     SimpleCluster cluster(RACK_COUNT, NODES_PER_RACK, LINK_SPEED, CORE_COUNT);
     //ISimulator *simulator = nullptr;
-    ISimulator * simulator = new SingleLayerRotorSimulator(cluster);
+    SingleLayerRotorSimulator* simulator = new SingleLayerRotorSimulator(cluster);
 
-    // uint64_t tor;
-    // uint64_t data_size = Gb(100);
+    //uint64_t tor;
+    //uint64_t data_size = Gb(100);
     // Flow flow1(0, tor, 7, tor, data_size, 0.00, nullptr);
     // //7 2 0 3 , 4 6 3 5 , 2 0 4 7, 3 4 1 0, 1 3 2 6, 6 5 7 1, 5 1 6 4, 0 7 5 2
     // flow1.setChannels(0,0);
@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
     // std::cout << "remaining time:" <<"\n";
     // std::cout << std::fixed << time1 <<"\n";
     //double time2 = simulator->TestFlows(flow2);
+    //Flow flow1(0, tor, 1, tor, data_size, 0.00, nullptr);
     //simulator->TestFlows(flow1);
     //simulator->TestFlows(flow2);
 

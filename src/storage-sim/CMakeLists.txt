@@ -6,9 +6,9 @@ set(CC_FLAGS "-Wpedantic -Wconversion -Wall")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread -g -lrt")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CC_FLAGS}")
 
-set(flowsim_rotor_SRC flowsim_main.cc flowsim_topo_rotor.cc)
+#set(flowsim_rotor_SRC flowsim_main.cc flowsim_topo_rotor.cc)
 set(flowsim_rotor_TEST flowsim_test.cc flowsim_topo_rotor.cc)
-add_executable(flowsim_rotor ${flowsim_rotor_SRC})
+#add_executable(flowsim_rotor ${flowsim_rotor_SRC})
 add_executable(flowsim_test  ${flowsim_rotor_TEST})
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -g -lrt -fno-omit-frame-pointer -fsanitize=address")
