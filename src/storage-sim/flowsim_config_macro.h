@@ -4,11 +4,15 @@
 #include <tuple>
 
 #define KB(n) ((uint64_t)n * 1024)
-#define MB(n) ((uint64_t)n * 1024 * 1024)
-#define GB(n) ((uint64_t)n * 1024 * 1024 * 1024)
+//#define MB(n) ((uint64_t)n * 1024 * 1024)
+//#define GB(n) ((uint64_t)n * 1024 * 1024 * 1024)
+#define MB(n) ((uint64_t)n * 1000 * 1000)
+#define GB(n) ((uint64_t)n * 1000 * 1000 * 1000)
 #define Kb(n) ((uint64_t)n * 1024 / 8)
-#define Mb(n) ((uint64_t)n * 1024 * 1024 / 8)
-#define Gb(n) ((uint64_t)n * 1024 * 1024 * 1024 / 8)
+//#define Mb(n) ((uint64_t)n * 1024 * 1024 / 8)
+#define Mb(n) ((uint64_t)n * 1000 * 100 / 8)
+//#define Gb(n) ((uint64_t)n * 1024 * 1024 * 1024 / 8)
+#define Gb(n) ((uint64_t)n * 1000 * 1000 * 1000 / 8)
 
 enum LinkType { HOST_TOR, TOR_CORE, CORE_TOR, TOR_HOST, TOR_TOR };
 typedef std::tuple<LinkType, uint64_t> link_id_t;
@@ -35,5 +39,18 @@ static const uint64_t METADATA_SIZE = 640*150; // num of blocks in 40GB file * m
 
 static const uint64_t DEFAULT_BLOCK_SIZE = MB(64);
 static const int DEFAULT_REPLICA_COUNT = 3;
+
+namespace util {
+    template<class InputIt, class T>
+    constexpr InputIt find(InputIt first, InputIt last, const T& value)
+    {  
+        for (; first != last; ++first) {
+            if (*first == value) {
+                return first;
+            }
+        }
+        return last;
+    }
+}
 
 #endif //FLOW_SIM_CONFIG_H

@@ -53,10 +53,14 @@ private:
 
                 if (!flow.HasStarted(time_now)) {   // Upcoming flow
                     // Check for earliest arrival flow
+                    std::cout << std::fixed << "Check for earliest arrival flow, ";
                     next_time = flow.time_start - time_now;
+                    std::cout << std::fixed << "next_time:" << next_time << "\n";
                 } else if (!flow.IsCompleted()) {   // Existing flow
                     // Check for earliest finish
+                    std::cout << std::fixed << "Check for earliest finish, " ;
                     next_time = GetFlowRemainingTime(flow);
+                    std::cout << std::fixed << "next_time:" << next_time << "\n";
                 } else {
                     continue;
                 }
@@ -64,6 +68,7 @@ private:
                 // fprintf(stderr, "%" PRIu64 "->%" PRIu64 ": rate: %f, time remaining: %f\n",
                 //         flow.host_uplink, flow.host_downlink, flow.current_rate, next_time);
                 if (next_time < local_min_next_time) {
+                    std::cout << "next_time:" << next_time << "\n";
                     local_min_next_time = next_time;
                     local_flow_next = &flow;
                 }
@@ -119,24 +124,24 @@ protected:
         return host_id / hosts_per_rack;
     }
 
-    double GetFlowRate(const Flow &flow, std::tuple<int, int> channels) const {
+    double GetFlowRate(const Flow &flow, std::tuple<int, int> channels, int slot) const {
         std::vector<double> rates;
         int src_channel = std::get<0>(channels);
         int dst_channel = std::get<1>(channels);  
         for (const auto &link_id: GetLinkIds(flow)) {
             LinkType linktype = std::get<0>(link_id);
             double rate;
-            if(linktype == HOST_TOR){
-                rate = links.at(link_id).GetRatePerFlow(src_channel); 
+            if(linktype == HOST_TOR && src_channel > 0  && src_channel < HOST_CHANNELS){
+                rate = links.at(link_id).GetRatePerFlow(src_channel, slot); 
                 //std::cout << std::fixed << "HOST_TOR rate" << rate << "\n";
             }
-            else if (linktype == TOR_HOST){
-                rate = links.at(link_id).GetRatePerFlow(dst_channel);
+            else if (linktype == TOR_HOST && dst_channel > 0 && dst_channel < HOST_CHANNELS){
+                rate = links.at(link_id).GetRatePerFlow(dst_channel, slot);
                 //std::cout << std::fixed << "TOR_HOST rate" << rate << "\n";
             }
             else{
-                std::cout << "WTF, why are you here\n";
-                rate = links.at(link_id).GetRatePerFlow(-1); // a fallback case
+                //std::cout << "we don't have a valid channel and link type\n";
+                rate = links.at(link_id).GetRatePerFlow(-1, slot); // a fallback case
             }
             rates.push_back(rate);
         }
@@ -144,10 +149,10 @@ protected:
     }
 
 
-    double GetFlowRate(const Flow &flow, int channel = -1) const {
+    double GetFlowRate(const Flow &flow, int slot ,int channel = -1) const {
         std::vector<double> rates;
         for (const auto &link_id: GetLinkIds(flow)) {
-            double rate = links.at(link_id).GetRatePerFlow(channel);
+            double rate = links.at(link_id).GetRatePerFlow(channel, slot);
             rates.push_back(rate);
         }
         return *min_element(rates.begin(), rates.end());

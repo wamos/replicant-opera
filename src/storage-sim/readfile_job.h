@@ -65,16 +65,24 @@ private:
 
         uint64_t task_total_count = 0;
         auto& client   = cluster.hosts[0];
-        auto& server = cluster.hosts[1];
+        auto& server0  = cluster.hosts[1];
+        auto& server1  = cluster.hosts[3];
+        auto& server2  = cluster.hosts[4];
 
-        RWTask *read_req = new RWTask(client.hostid, server.hostid, 0, file_id, block_id, "OneFlow");
-        client.pending_tasks.push(read_req);
+        RWTask *read_req_0 = new RWTask(client.hostid, server0.hostid, 0, file_id, block_id, "1stFlow");
+        client.pending_tasks.push(read_req_0);
         task_total_count++;
-        std::cout<<"req dst_id:"<<+read_req->dst_id<<"\n";
-        std::cout<<"req taskid:"<<+read_req->task_id<<"\n";
+        //
+        RWTask *read_req_1 = new RWTask(client.hostid, server1.hostid, 0, file_id, block_id, "2ndFlow");
+        client.pending_tasks.push(read_req_1);
+        task_total_count++;
+
+
+        //std::cout<<"req dst_id:"<<+read_req->dst_id<<"\n";
+        //std::cout<<"req taskid:"<<+read_req->task_id<<"\n";
 
         while (task_completed < task_total_count) {
-            while (client.pending_tasks.size() > 0 && client.running_tasks.size() < 2) {
+            while (client.pending_tasks.size() > 0 && client.running_tasks.size() < 5) {
                 auto current_time =simulator->GetCurrentTime();
                 auto flow_start = current_time;
                 RWTask* task = client.pending_tasks.front();
