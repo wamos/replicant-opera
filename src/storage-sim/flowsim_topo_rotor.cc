@@ -35,7 +35,7 @@ std::vector<link_id_t> SingleLayerRotorSimulator::GetLinkIds(const Flow &flow) c
 
 
 void SingleLayerRotorSimulator::IncrementLinkFlowCount(const Flow &flow){
-    std::cout << "IncrementLinkFlowCount" << "\n";
+    //std::cout << "IncrementLinkFlowCount" << "\n";
     for (int slot = 0; slot < num_slots; slot++){ //which slot in a cycle?  
         std::tuple<int, int> channels = GetFlowChannel(flow.src_host, flow.dst_host, slot);
         int src_channel = std::get<0>(channels);
@@ -43,12 +43,12 @@ void SingleLayerRotorSimulator::IncrementLinkFlowCount(const Flow &flow){
         if(src_channel >= 0 && dst_channel >= 0){
             for (const auto &link_id: GetLinkIds(flow)){
                 LinkType linktype = std::get<0>(link_id);
-                if(linktype == HOST_TOR && src_channel > 0  && src_channel < HOST_CHANNELS){
+                if(linktype == HOST_TOR && src_channel >= 0  && src_channel < HOST_CHANNELS){
                     links.at(link_id).IncrementFlowCount(src_channel, slot);
                     //std::cout << "src channel:" <<  flow.src_channel <<"\n";
                     //std::cout << "HOST_TOR" << "\n";
                 }
-                else if (linktype == TOR_HOST && dst_channel > 0 && dst_channel < HOST_CHANNELS){
+                else if (linktype == TOR_HOST && dst_channel >= 0 && dst_channel < HOST_CHANNELS){
                     links.at(link_id).IncrementFlowCount(dst_channel, slot);
                     //std::cout << "dst channel:" <<  flow.dst_channel <<"\n";
                     //std::cout << "TOR_HOST" << "\n";
@@ -79,12 +79,12 @@ void SingleLayerRotorSimulator::IncrementLinkFlowCount(const Flow &flow){
             int dst_channel = std::get<1>(channels); 
             for (const auto &link_id: GetLinkIds(flow)){
                 LinkType linktype = std::get<0>(link_id);
-                if(linktype == HOST_TOR && src_channel > 0  && src_channel < HOST_CHANNELS){
+                if(linktype == HOST_TOR && src_channel >= 0  && src_channel < HOST_CHANNELS){
                     links.at(link_id).IncrementFlowCount(src_channel);
                     //std::cout << "src channel:" <<  flow.src_channel <<"\n";
                     //std::cout << "HOST_TOR" << "\n";
                 }
-                else if (linktype == TOR_HOST && dst_channel > 0 && dst_channel < HOST_CHANNELS){
+                else if (linktype == TOR_HOST && dst_channel >= 0 && dst_channel < HOST_CHANNELS){
                     links.at(link_id).IncrementFlowCount(dst_channel);
                     //std::cout << "dst channel:" <<  flow.dst_channel <<"\n";
                     //std::cout << "TOR_HOST" << "\n";
@@ -99,7 +99,7 @@ void SingleLayerRotorSimulator::IncrementLinkFlowCount(const Flow &flow){
 }*/
 
 uint64_t SingleLayerRotorSimulator::GetTransmittedBytes(const Flow &flow, double interval) const{
-    std::cout << "GetTransmittedBytes\n";
+    //std::cout << "GetTransmittedBytes\n";
     auto rates = GetRatesPerCycle(flow);
     auto bytes_per_slot = GetBytesPerCycle(flow, rates);
     double rate_down = 0; //GetFlowRateForDownRotors(flow);
@@ -317,7 +317,7 @@ std::vector<double> SingleLayerRotorSimulator::GetRatesPerCycle(const Flow &flow
     //int slotnum = (int)std::floor(time_in_cycle / total_slot_time); 
 
     //std::cout << "GetRatesPerCycle for "<<  num_slots <<" slots\n";
-    std::cout << "Start GetRatesPerCycle for "<<  flow.src_host <<"->" << flow.dst_host << "\n";
+    //std::cout << "Start GetRatesPerCycle for "<<  flow.src_host <<"->" << flow.dst_host << "\n";
 
     std::vector<double> rate_vec(num_slots);// flow rate at each time slot.
     //std::vector<double> rates(channel_count);// flow rate at each channel.
@@ -328,7 +328,7 @@ std::vector<double> SingleLayerRotorSimulator::GetRatesPerCycle(const Flow &flow
     
     for (int slot = 0; slot < num_slots; slot++){ //which slot in a cycle?
         //std::cout << "------------------\n";
-        std::cout << "slots:" << slot << "\n";
+        //std::cout << "slots:" << slot << "\n";
         std::tuple<int, int> channels = GetFlowChannel(src_host,dst_host, slot);
         //std::cout << "src_ch:" <<  std::get<0>(channels) << ", dst_ch:" <<  std::get<1>(channels) <<"\n";
         double flow_rate_onehop = GetFlowRate(flow, channels, slot); // One-hop rate
@@ -343,6 +343,7 @@ std::vector<double> SingleLayerRotorSimulator::GetRatesPerCycle(const Flow &flow
         auto slot_mapset = rotorlb_midlist.at(slot);
         #endif
 
+        #if TWO_HOP_PATH
         auto found_dst = slot_mapset.find(dst_host);
         if (found_dst != slot_mapset.end()) {
             for (const auto mid_host: slot_mapset.at(dst_host)) {
@@ -373,7 +374,7 @@ std::vector<double> SingleLayerRotorSimulator::GetRatesPerCycle(const Flow &flow
                 std::cout << "\n";*/
                 
                 auto flow_rate_twohop = *min_element(link_rates.begin(), link_rates.end());
-                std::cout << std::fixed << "twp-hop rate:"<< flow_rate_twohop <<"\n";
+                //std::cout << std::fixed << "twp-hop rate:"<< flow_rate_twohop <<"\n";
 
                 #if ROTOR_LB_TWO_HOP
                 //int next_slot = (slot+1)%num_slots;
@@ -388,14 +389,15 @@ std::vector<double> SingleLayerRotorSimulator::GetRatesPerCycle(const Flow &flow
         else{
            std::cout << "no two-hop path for dst " << dst_host << ", check one-hop path\n"; 
         }
-        std::cout << std::fixed << "rate_vec:" << rate_vec[slot] << "\n";
+        #endif
+        //std::cout << std::fixed << "rate_vec:" << rate_vec[slot] << "\n";
     }
-    std::cout << "End GetRatesPerCycle for "<<  flow.src_host <<"->" << flow.dst_host << "\n";
+    //std::cout << "End GetRatesPerCycle for "<<  flow.src_host <<"->" << flow.dst_host << "\n";
     return rate_vec;
 }
 
 std::vector<uint64_t> SingleLayerRotorSimulator::GetBytesPerCycle(const Flow &flow, std::vector <double> &rates) const{
-    std::cout << "GetBytesPerCycle\n";
+    //std::cout << "GetBytesPerCycle\n";
     std::vector<uint64_t> bytes_per_slot(num_slots); // # of bytes this flow can transmit per time slot.
     for (int slot = 0; slot < num_slots; slot++){
         bytes_per_slot[slot] = (uint64_t) (rates[slot] * transmit_slot_time);
@@ -543,8 +545,8 @@ bool SingleLayerRotorSimulator::UpdateTwoHopLinkFlowCount(const Flow &flow){
                 // 1. ensure we found a mid_host existed in two consecutive slots: slot_now and slot_next
                 // ? 2. ensure a distinct two-hop path for this topo
                 if(found_rotorlb != midlist_next.end()){ //&& two_hop_set.find(mid_host) == two_hop_set.end()){
-                    std::cout << "slot:" << slot << "\n"; 
-                    std::cout <<"rotorlb path:"<< src_host << "->" << mid_host << "->" << dst_host << "\n";
+                    //std::cout << "slot:" << slot << "\n"; 
+                    //std::cout <<"rotorlb path:"<< src_host << "->" << mid_host << "->" << dst_host << "\n";
                     auto uplink1 = std::make_tuple(HOST_TOR, flow.src_host);
                     auto uplink2 = std::make_tuple(TOR_HOST, mid_host);
                     std::tuple<int, int> channels = GetFlowChannel(flow.src_host, mid_host, (slot+1)%num_slots );
@@ -666,18 +668,6 @@ void SingleLayerRotorSimulator::UpdateLinkDemand(){
         bool updated = UpdateTwoHopLinkFlowCount(flow);
         #endif
     }
-
-    /*#if TWO_HOP_PATH
-    for (const auto &flow: flows) {
-        if (!flow.HasStarted(time_now) || flow.IsCompleted()){
-            continue;
-        }
-        std::cout << "Updating two-hop flow:" << flow.src_host << "->" << flow.dst_host << "\n";
-        bool updated = UpdateTwoHopLinkFlowCount(flow);
-        if(updated)
-            std::cout << "Updating two-hop flow:" << flow.src_host << "->" << flow.dst_host << "\n";
-    }
-    #endif*/
 
 }
 

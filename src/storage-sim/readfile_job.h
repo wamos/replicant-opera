@@ -65,17 +65,23 @@ private:
 
         uint64_t task_total_count = 0;
         auto& client   = cluster.hosts[0];
-        auto& server0  = cluster.hosts[1];
-        auto& server1  = cluster.hosts[3];
-        auto& server2  = cluster.hosts[4];
+        auto& server0  = cluster.hosts[7];
+        //auto& server1  = cluster.hosts[3];
+        //auto& server2  = cluster.hosts[4];
 
-        RWTask *read_req_0 = new RWTask(client.hostid, server0.hostid, 0, file_id, block_id, "1stFlow");
+        /*RWTask *read_req_0 = new RWTask(client.hostid, server0.hostid, 0, file_id, block_id, "1stFlow");
         client.pending_tasks.push(read_req_0);
-        task_total_count++;
-        //
+        task_total_count++;*/
+        /*
         RWTask *read_req_1 = new RWTask(client.hostid, server1.hostid, 0, file_id, block_id, "2ndFlow");
         client.pending_tasks.push(read_req_1);
-        task_total_count++;
+        task_total_count++;*/
+
+        for(int index=0; index < 7; index++){
+            RWTask *read_req_0 = new RWTask(cluster.hosts[0].hostid, cluster.hosts[index+1].hostid, 0, file_id, block_id, "flow_0->"+std::to_string(index));
+            client.pending_tasks.push(read_req_0);
+            task_total_count++;
+        }
 
 
         //std::cout<<"req dst_id:"<<+read_req->dst_id<<"\n";

@@ -38,10 +38,10 @@ struct Link {
 
     double GetRatePerFlow(int channel, int slot) const {
         double total_flow_count = 0;
-        if (channel >= 0){//&& flow_counts[channel] > 0){
+        if (channel >= 0){
             //total_flow_count = flow_counts[channel];
             total_flow_count = perslot_flowcount[slot][channel];
-            std::cout << "channel:" << channel << ", total flow count:"<< total_flow_count << "\n";
+            //std::cout << "channel:" << channel << ", total flow count:"<< total_flow_count << "\n";
         }
         else{ //channel = -1
           //the current flow doesn't have a proper channel, flow cannot have any rate
@@ -60,7 +60,7 @@ struct Link {
             //total_flow_count = flow_counts[channel];
             //total_flow_count  = twohopflow_counts[channel];
             total_flow_count = perslot_flowcount[slot][channel];
-            std::cout << "channel:" << channel << ", total flow count:"<< total_flow_count << "\n";
+            //std::cout << "channel:" << channel << ", total flow count:"<< total_flow_count << "\n";
         }
         if (total_flow_count == 0)
             return 0;
@@ -102,7 +102,6 @@ struct Link {
     }
 
     void IncrementFlowCount(int channel) {
-        std::cout << "--------------IncrementFlowCount on channel:" << channel << "--------------\n"; 
         //flow_counts[static_cast<unsigned long>(channel)]++;
         if(channel >=0){
             flow_counts[channel]++;

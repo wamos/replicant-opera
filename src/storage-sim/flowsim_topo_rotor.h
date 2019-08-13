@@ -79,8 +79,10 @@ public:
     SingleLayerRotorSimulator(SimpleCluster cluster)
         : ISimulator(cluster),
         channel_count(HOST_CHANNELS),
+        #if TWO_HOP_PATH
         rotorlb_midlist(std::vector<std::map<uint64_t, std::set<uint64_t>>>(num_slots)),
         dst_midlist(std::vector<std::map<uint64_t, std::set<uint64_t>>>(num_slots)),
+        #endif
         num_slots(ROTOR_SLOTS),
         cycle_time(DEFAULT_SLOT_TIME* ROTOR_SLOTS),
         filename(TOPO_FILENAME) 

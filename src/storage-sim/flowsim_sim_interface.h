@@ -131,11 +131,11 @@ protected:
         for (const auto &link_id: GetLinkIds(flow)) {
             LinkType linktype = std::get<0>(link_id);
             double rate;
-            if(linktype == HOST_TOR && src_channel > 0  && src_channel < HOST_CHANNELS){
+            if(linktype == HOST_TOR && src_channel >= 0  && src_channel < HOST_CHANNELS){
                 rate = links.at(link_id).GetRatePerFlow(src_channel, slot); 
                 //std::cout << std::fixed << "HOST_TOR rate" << rate << "\n";
             }
-            else if (linktype == TOR_HOST && dst_channel > 0 && dst_channel < HOST_CHANNELS){
+            else if (linktype == TOR_HOST && dst_channel >= 0 && dst_channel < HOST_CHANNELS){
                 rate = links.at(link_id).GetRatePerFlow(dst_channel, slot);
                 //std::cout << std::fixed << "TOR_HOST rate" << rate << "\n";
             }
