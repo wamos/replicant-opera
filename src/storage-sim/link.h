@@ -12,6 +12,12 @@ struct Link {
     int num_slot;
     int channel_count;
 
+    //TODO: add two variables for for a link
+    //recv_cap
+    //send_cap
+    // flow_id -> rate at each topo slice
+    std::map<uint64_t, std::vector<double>> rate_map;
+
     // using std::vector for brevity. It should be changed to **ptr matrix as follow:
     // int **twohop_flow_counts;
     // twohop_flow_counts needs to be tracked in time slot based, so we can keep track of 

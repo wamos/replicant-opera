@@ -98,6 +98,7 @@ void SingleLayerRotorSimulator::IncrementLinkFlowCount(const Flow &flow){
     }
 }*/
 
+//TODO: This needs to be added a section to support ROTOR_LB_TWO_HOP
 uint64_t SingleLayerRotorSimulator::GetTransmittedBytes(const Flow &flow, double interval) const{
     //std::cout << "GetTransmittedBytes\n";
     auto rates = GetRatesPerCycle(flow);
@@ -168,15 +169,24 @@ double SingleLayerRotorSimulator::GetFlowRemainingTime(const Flow &flow) const{
     std::cout << "slotnum_now:" << slotnum_now << "\n";
     std::cout << "time_in_slot:" << time_in_slot << "\n";
 
-    // TODO: we need an exceptional case here, for the rotorlb two-hop, the first slot in first cycle cannot have a buffered two-hop connection 
+    // ***TODO***
+    // we need an exceptional case here, for the rotorlb two-hop,
+    // the first occurance of a path in the first cycle cannot have a buffered two-hop path
     #if ROTOR_LB_TWO_HOP
     double first_slot_rate = 0;
-    if( which_cycle ==0 &&  slotnum_now ==0){
-        std::cout<<" the first slot in first cycle \n";
-        std::tuple<int, int> channels = GetFlowChannel(flow.src_host, flow.dst_host, slotnum_now);
-        double flow_rate_onehop = GetFlowRate(flow, channels, slotnum_now); // One-hop rate
-        if(rates[slotnum_now] > flow_rate_onehop){
-            first_slot_rate = flow_rate_onehop;
+    std::vector<double> rate_firstcycle = GetRatesForFirstCycle(flow);
+    std::cout<<" the first cycle \n";
+    for(int i = 0 ; i < num_slots ; i++){
+        rate_firstcycle[i] = rates[i] + rate_firstcycle[i];
+        std::cout << std::fixed << "slot:" << i << ", first cycle rate:" << rate_firstcycle[i] << "\n";
+    }
+    auto first_cycle_bytes = GetBytesPerCycle(flow, rate_firstcycle);
+    if( which_cycle == 0 && slotnum_now ==0){
+        // std::cout<<" the first occurance in first cycle \n";
+        // std::tuple<int, int> channels = GetFlowChannel(flow.src_host, flow.dst_host, slotnum_now);
+        // double flow_rate_onehop = GetFlowRate(flow, channels, slotnum_now); // One-hop rate
+        if(rates[slotnum_now] > rate_firstcycle[0]){
+            first_slot_rate = rate_firstcycle[0];
         }
         else{
             first_slot_rate = rates[slotnum_now];
@@ -191,7 +201,7 @@ double SingleLayerRotorSimulator::GetFlowRemainingTime(const Flow &flow) const{
 
         #if ROTOR_LB_TWO_HOP
         if( which_cycle ==0 &&  slotnum_now ==0){// an edge case for the first slot in first cycle, which cannot have a buffered two-hop connection 
-            std::cout<<" the first slot in first cycle \n";
+            //std::cout<<" the first slot in first cycle \n";
             partial_bytes = (uint64_t) (first_slot_rate *transmit_slot_remaining_time);
         }
         else{
@@ -213,6 +223,16 @@ double SingleLayerRotorSimulator::GetFlowRemainingTime(const Flow &flow) const{
     }
     std::cout << "time_in_slot:" << time_in_slot << "\n";
 
+    #if ROTOR_LB_TWO_HOP 
+    uint64_t first_cycle_throughput = std::accumulate(first_cycle_bytes.begin(), first_cycle_bytes.end(), (uint64_t)0);
+    if(time_in_slot == transmit_slot_time){
+        first_cycle_throughput = first_cycle_throughput - first_cycle_bytes[0]; // subtract the first slot from first_cycle_throughput 
+        start_partial_slot_time += (total_slot_time - time_in_slot);
+        start_partial_slot_time += (cycle_time - total_slot_time);
+        total_bytes = total_bytes - first_cycle_throughput;
+    }
+    #endif
+
     //double whole_slot_remaining_time = total_slot_time - time_in_slot;
     //start_partial_slot_time += whole_slot_remaining_time;
 
@@ -222,8 +242,13 @@ double SingleLayerRotorSimulator::GetFlowRemainingTime(const Flow &flow) const{
     uint64_t whole_cycles = total_bytes / bytes_per_cycle; 
     std::cout << "whole_cycles:" << whole_cycles << "\n";
     double whole_cycles_time = (double) whole_cycles * cycle_time;
-    // Minor adjustment
-    whole_cycles_time = whole_cycles_time - total_slot_time; //count the slot above twice in this pre-cycle calculation.   
+
+    // Minor adjustment for cycles_time
+    #if ROTOR_LB_TWO_HOP
+    whole_cycles_time = whole_cycles_time - cycle_time; // subtract the first cycle from the other cycles   
+    #else
+    whole_cycles_time = whole_cycles_time - total_slot_time; //count the slot above twice in this pre-cycle calculation. 
+    #endif
 
     // Run through remaining slots
     uint64_t remaining_bytes = total_bytes % bytes_per_cycle;
@@ -311,6 +336,57 @@ std::tuple<int, int> SingleLayerRotorSimulator::GetFlowChannel(uint64_t src_host
 /*double SingleLayerRotorSimulator::GetFlowRateForDownRotors(const Flow &flow) const{    
     return 0.0;
 }*/
+#if ROTOR_LB_TWO_HOP
+std::vector<double> SingleLayerRotorSimulator::GetRatesForFirstCycle(const Flow &flow) const{
+    std::vector<double> rate_diff(num_slots);// flow rate at each time slot.
+    std::fill(rate_diff.begin(), rate_diff.end(), (double)0);
+    uint64_t dst_host = flow.dst_host;
+    uint64_t src_host = flow.src_host;
+    std::set<uint64_t> first_occur_set;
+
+    for (int slot = 0; slot < num_slots; slot++){ //which slot in a cycle?
+        //std::cout << "slots:" << slot << "\n";
+        auto slot_mapset = dst_midlist.at(slot);
+        auto found_dst = slot_mapset.find(dst_host);
+        if (found_dst != slot_mapset.end()) {
+            for (const auto mid_host: slot_mapset.at(dst_host)) {
+                auto found_first = first_occur_set.find(mid_host);    
+                std::vector<double> link_rates;  
+                if(found_first == first_occur_set.end()){ //we need to reduct the rate
+                    //std::cout <<"two-hop path:"<< src_host << "->" << mid_host << "->" << dst_host << "\n";
+                    auto src_channels = GetFlowChannel(src_host, mid_host, slot);
+                    int uplink_channel = std::get<0>(src_channels);
+                    int mid_channel0 = std::get<1>(src_channels);            
+
+                    auto uplink1_id = std::make_tuple(HOST_TOR, src_host);
+                    auto uplink2_id = std::make_tuple(TOR_HOST, mid_host);
+                    link_rates.push_back(links.at(uplink1_id).GetRatePerTwohopFlow(uplink_channel, slot));
+                    link_rates.push_back(links.at(uplink2_id).GetRatePerTwohopFlow(mid_channel0, slot));
+
+                    auto dst_channels    = GetFlowChannel(mid_host, dst_host, slot);
+                    int mid_channel1     = std::get<0>(dst_channels);
+                    int downlink_channel = std::get<1>(dst_channels);   
+
+                    auto downlink1_id = std::make_tuple(HOST_TOR, mid_host);
+                    auto downlink2_id = std::make_tuple(TOR_HOST, dst_host);
+                    link_rates.push_back(links.at(downlink1_id).GetRatePerTwohopFlow(mid_channel1, slot));
+                    link_rates.push_back(links.at(downlink2_id).GetRatePerTwohopFlow(downlink_channel, slot));
+                    auto flow_rate_twohop = *min_element(link_rates.begin(), link_rates.end());
+                    //std::cout << std::fixed << "Reduce twp-hop rate:"<< flow_rate_twohop <<"\n";
+                    rate_diff[slot] -= flow_rate_twohop;
+                    first_occur_set.insert(mid_host);
+                }
+            } 
+        }
+        else{
+           std::cout << "no two-hop path for dst " << dst_host << ", check one-hop path\n"; 
+        }
+        //std::cout << "rate_diff:" << rate_diff[slot] << "\n";
+    }
+    return rate_diff;
+}
+#endif
+
 
 std::vector<double> SingleLayerRotorSimulator::GetRatesPerCycle(const Flow &flow) const{
     double time_in_cycle = fmod(time_now, cycle_time);
@@ -328,22 +404,15 @@ std::vector<double> SingleLayerRotorSimulator::GetRatesPerCycle(const Flow &flow
     
     for (int slot = 0; slot < num_slots; slot++){ //which slot in a cycle?
         //std::cout << "------------------\n";
-        //std::cout << "slots:" << slot << "\n";
+        std::cout << "slots:" << slot << "\n";
         std::tuple<int, int> channels = GetFlowChannel(src_host,dst_host, slot);
         //std::cout << "src_ch:" <<  std::get<0>(channels) << ", dst_ch:" <<  std::get<1>(channels) <<"\n";
         double flow_rate_onehop = GetFlowRate(flow, channels, slot); // One-hop rate
         rate_vec[slot] = flow_rate_onehop;
-        //std::cout<< std::fixed << "slots:" <<  slot << ", one-hop rate:"<< flow_rate_onehop << "\n";
-
-        #if BUFFERLESS_TWO_HOP
-        auto slot_mapset = dst_midlist.at(slot);
-        #endif
-
-        #if ROTOR_LB_TWO_HOP
-        auto slot_mapset = rotorlb_midlist.at(slot);
-        #endif
+        std::cout<< std::fixed << "one-hop rate:" << flow_rate_onehop << "\n";
 
         #if TWO_HOP_PATH
+        auto slot_mapset = dst_midlist.at(slot);
         auto found_dst = slot_mapset.find(dst_host);
         if (found_dst != slot_mapset.end()) {
             for (const auto mid_host: slot_mapset.at(dst_host)) {
@@ -374,23 +443,20 @@ std::vector<double> SingleLayerRotorSimulator::GetRatesPerCycle(const Flow &flow
                 std::cout << "\n";*/
                 
                 auto flow_rate_twohop = *min_element(link_rates.begin(), link_rates.end());
-                //std::cout << std::fixed << "twp-hop rate:"<< flow_rate_twohop <<"\n";
+                std::cout << std::fixed << "twp-hop rate:"<< flow_rate_twohop <<"\n";
 
                 #if ROTOR_LB_TWO_HOP
                 //int next_slot = (slot+1)%num_slots;
                 rate_vec[slot] += flow_rate_twohop;
                 #endif
 
-                #if BUFFERLESS_TWO_HOP
-                rate_vec[slot] += flow_rate_twohop;
-                #endif
             } 
         }
         else{
            std::cout << "no two-hop path for dst " << dst_host << ", check one-hop path\n"; 
         }
         #endif
-        //std::cout << std::fixed << "rate_vec:" << rate_vec[slot] << "\n";
+        std::cout << std::fixed << "rate_vec:" << rate_vec[slot] << "\n";
     }
     //std::cout << "End GetRatesPerCycle for "<<  flow.src_host <<"->" << flow.dst_host << "\n";
     return rate_vec;
@@ -484,29 +550,27 @@ bool SingleLayerRotorSimulator::UpdateTwoHopLinkFlowCount(const Flow &flow){
             one_hop_dsts.insert(rotor_matchings[slot][src]);
         }
 
-        //#if BUFFERLESS_TWO_HOP
         for(uint64_t src = src_index_start; src < src_index_start + channel_count; src++){
             uint64_t mid_host_start =rotor_matchings[slot][src]*channel_count;
             for(uint64_t mid = mid_host_start; mid < mid_host_start + channel_count; mid++){
                 //two_hop_dsts.insert(rotor_matchings[slotnum][mid]);
                 uint64_t dst_temp = rotor_matchings[slot][mid];
-                if(dst_temp == dst_host){
-                    slot_mapset[dst_temp].insert(mid/channel_count);  
+                uint64_t mid_host = mid/channel_count;
+                if(dst_temp == dst_host && mid_host != dst_host && mid_host != src_host){
+                    slot_mapset[dst_temp].insert(mid_host);  
                     //two_hop_set[dst_temp].insert(mid/channel_count);
                 }
             }
         }
-        for(auto it = one_hop_dsts.begin(); it != one_hop_dsts.end(); ++it) {
+        // This one_hop_dst constraint is not necessary 
+        /*for(auto it = one_hop_dsts.begin(); it != one_hop_dsts.end(); ++it) {
             auto foundit = slot_mapset.find(*it);           
             if (foundit != slot_mapset.end()) {
                 slot_mapset.erase(*it); 
             } 
-        }
-        //dst_midlist.push_back(std::move(slot_mapset));
-        auto& mapset =dst_midlist[slot];
+        }*/
+        auto& mapset = dst_midlist[slot];
         mapset[dst_host] = slot_mapset[dst_host];
-        //dst_midlist[slot] = std::move(slot_mapset);
-        //#endif
     }
 
     /*std::cout << "--------------per-slot path set--------------"<<"\n";
@@ -529,6 +593,37 @@ bool SingleLayerRotorSimulator::UpdateTwoHopLinkFlowCount(const Flow &flow){
     //std::set<std::tuple<int, int>> channels_mid_dst;
 
     #if ROTOR_LB_TWO_HOP
+    for (int slot = 0; slot < num_slots; slot++){
+        std::cout << "slot:"<< slot <<" ,"; 
+        auto slot_mapset = dst_midlist.at(slot);
+        auto found_dst = slot_mapset.find(dst_host);
+        if(found_dst != slot_mapset.end()){
+            for(auto mid_host:slot_mapset.at(dst_host)){
+                std::cout <<"two-hop path:"<< src_host << "->" << mid_host << "->" << dst_host << ", ";
+                auto uplink1 = std::make_tuple(HOST_TOR, flow.src_host);
+                auto uplink2 = std::make_tuple(TOR_HOST, mid_host);
+                std::tuple<int, int> channels = GetFlowChannel(flow.src_host, mid_host, slot);
+                int src_channel  = std::get<0>(channels);
+                int mid_channel0 = std::get<1>(channels);
+                links.at(uplink1).IncrementTwohopFlowCount(src_channel, slot);
+                links.at(uplink2).IncrementTwohopFlowCount(mid_channel0, slot);
+
+                auto downlink1 = std::make_tuple(HOST_TOR, mid_host);
+                auto downlink2 = std::make_tuple(TOR_HOST, flow.dst_host);
+                channels = GetFlowChannel(mid_host, flow.dst_host, slot);
+                int mid_channel1 = std::get<0>(channels);
+                int dst_channel  = std::get<1>(channels);  
+                links.at(downlink1).IncrementTwohopFlowCount(mid_channel1, slot);
+                links.at(downlink2).IncrementTwohopFlowCount(dst_channel, slot);             
+                //else{std::cout << "threre is an existing two-hop path\n"};
+            }
+        }
+        std::cout << "\n";
+        //else{std::cout << "no two-hop path for dst " << dst_host << ", check one-hop path\n";}
+    }// for slots
+    #endif
+
+    #if RESTRICTED_ROTORLB
     for (int slot = 0; slot < num_slots; slot++){
         std::set<uint64_t> rotorlb_slotset;
         auto slot_now  = dst_midlist.at(slot%num_slots);
@@ -598,47 +693,6 @@ bool SingleLayerRotorSimulator::UpdateTwoHopLinkFlowCount(const Flow &flow){
     }*/
     #endif
 
-    #if BUFFERLESS_TWO_HOP
-    for (int slot = 0; slot < num_slots; slot++){
-        auto slot_mapset = dst_midlist.at(slot);
-        auto found_dst = slot_mapset.find(dst_host);
-        if(found_dst != slot_mapset.end()){
-            for(auto mid_host:slot_mapset.at(dst_host)){
-                // ensure an distinct two-hop path for this topo
-                if(two_hop_set.find(mid_host) == two_hop_set.end()){
-                    std::cout <<"two-hop path:"<< src_host << "->" << mid_host << "->" << dst_host << "\n";
-                    auto uplink1 = std::make_tuple(HOST_TOR, flow.src_host);
-                    auto uplink2 = std::make_tuple(TOR_HOST, mid_host);
-                    std::tuple<int, int> channels = GetFlowChannel(flow.src_host, mid_host, slot);
-                    int src_channel  = std::get<0>(channels);
-                    int mid_channel0 = std::get<1>(channels);
-                    auto existed = src_channels_set.find(src_channel);
-                    if(existed == src_channels_set.end()){ 
-                        links.at(uplink1).IncrementTwohopFlowCount(src_channel, slot);
-                        src_channels_set.insert(src_channel);
-                    }
-                    else{
-                        std::cout<< "overlap channel on " << src_channel << "\n";
-                    }
-                    links.at(uplink2).IncrementTwohopFlowCount(mid_channel0, slot);
-
-                    auto downlink1 = std::make_tuple(HOST_TOR, mid_host);
-                    auto downlink2 = std::make_tuple(TOR_HOST, flow.dst_host);
-                    channels = GetFlowChannel(mid_host, flow.dst_host, slot);
-                    int mid_channel1 = std::get<0>(channels);
-                    int dst_channel  = std::get<1>(channels);  
-                    links.at(downlink1).IncrementTwohopFlowCount(mid_channel1, slot);
-                    links.at(downlink2).IncrementTwohopFlowCount(dst_channel, slot);
-                    two_hop_set.insert(mid_host);               
-                }
-                //else{std::cout << "threre is an existing two-hop path\n"};
-            }
-        }
-        
-        //else{std::cout << "no two-hop path for dst " << dst_host << ", check one-hop path\n";}
-    }// for slots
-    #endif
-
     return true;
 }
 #endif
@@ -651,11 +705,6 @@ void SingleLayerRotorSimulator::UpdateLinkDemand(){
     for (auto &[key, link]: links){
         link.ResetFlowCounts();
     }
-
-    /*for (auto &flow: flows) {
-        std::tuple<int, int> channels = GetFlowChannel(flow.src_host, flow.dst_host, slotnum);
-        flow.setChannels(channels);
-    }*/
 
     for (const auto &flow: flows) {
         if (!flow.HasStarted(time_now) || flow.IsCompleted()){

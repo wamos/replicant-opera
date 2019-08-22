@@ -8,8 +8,8 @@
 #include "flowsim_sim_interface.h"
 #include "flowsim_config_macro.h"
 #define TWO_HOP_PATH 1
-#define BUFFERLESS_TWO_HOP 0
 #define ROTOR_LB_TWO_HOP 1
+#define RESTRICTED_ROTORLB 0
 
 class SingleLayerRotorSimulator : public ISimulator {
 private:
@@ -23,7 +23,7 @@ private:
     int num_slots;
     std::string filename;
 
-    #if ROTOR_LB_TWO_HOP
+    #if RESTRICTED_ROTORLB
     // this vector is for store and forward
     // dsts can be reached in two-hop, dst -> vector of mid_hosts
     std::vector<std::map<uint64_t, std::set<uint64_t>>> rotorlb_midlist; 
@@ -51,9 +51,8 @@ private:
     std::tuple<int, int>  GetFlowChannel(uint64_t src_host, uint64_t dst_host, int slotnum) const;
     double GetFlowRateForDownRotors(const Flow &flow) const;
     std::vector<double> GetRatesPerCycle(const Flow &flow) const;
-    //std::vector<double> GetRatesPerChannel(const Flow &flow) const;
+    std::vector<double> GetRatesForFirstCycle(const Flow &flow) const;
     std::vector<uint64_t> GetBytesPerCycle(const Flow &flow, std::vector <double> &rates) const;
-    //std::vector<uint64_t> GetBytesPerChannel(const Flow &flow, std::vector <double> &rates) const;
 
 public:
 
@@ -79,9 +78,10 @@ public:
     SingleLayerRotorSimulator(SimpleCluster cluster)
         : ISimulator(cluster),
         channel_count(HOST_CHANNELS),
-        #if TWO_HOP_PATH
-        rotorlb_midlist(std::vector<std::map<uint64_t, std::set<uint64_t>>>(num_slots)),
+        #if TWO_HOP_PATH && ROTOR_LB_TWO_HOP
         dst_midlist(std::vector<std::map<uint64_t, std::set<uint64_t>>>(num_slots)),
+        #elif RESTRICTED_ROTORLB
+        rotorlb_midlist(std::vector<std::map<uint64_t, std::set<uint64_t>>>(num_slots)),
         #endif
         num_slots(ROTOR_SLOTS),
         cycle_time(DEFAULT_SLOT_TIME* ROTOR_SLOTS),

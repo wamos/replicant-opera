@@ -10,9 +10,12 @@
 
 struct SimpleNode {
     uint64_t hostid;
+    std::vector<std::vector<int>> nonlocal_buffer_matrix; 
+    std::vector<uint64_t> flow_list;
+    
     std::map<uint64_t, Task *> map_tasks;
     std::queue<RWTask *> pending_tasks;
-    std::queue<uint64_t> pending_queue;
+    //std::queue<uint64_t> pending_queue;
     std::map<uint64_t, RWTask *> running_tasks;
     std::map<uint64_t, Task *> finished_tasks;
     std::map<uint64_t, Task *> completed_tasks;
