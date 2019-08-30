@@ -41,6 +41,15 @@ struct Flow {
         dst_channel = dst_ch;
     }
 
+    bool matchFlow(uint64_t src, uint64_t dst) const{
+        if(src == src_host && dst == dst_host){
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+
     void setChannels(std::tuple<int, int> channels){
         src_channel = std::get<0>(channels);
         dst_channel = std::get<1>(channels);

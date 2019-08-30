@@ -17,8 +17,8 @@
 enum LinkType { HOST_TOR, TOR_CORE, CORE_TOR, TOR_HOST, TOR_TOR };
 typedef std::tuple<LinkType, uint64_t> link_id_t;
 
-static const uint64_t RACK_COUNT = 1;
-static const uint64_t NODES_PER_RACK = 10;
+static const uint64_t RACK_COUNT = 8;
+static const uint64_t NODES_PER_RACK = 4;
 static const double LINK_SPEED = Gb(100);
 static const std::string TOPO_FILENAME("../topo/dynexp_N8_k8.txt");
 
@@ -37,20 +37,9 @@ static const uint64_t FILE_COUNT = 16;
 static const uint64_t FILE_SIZE = GB(100);
 static const uint64_t METADATA_SIZE = 640*150; // num of blocks in 40GB file * metadata_size_per_block
 
+static const double BUFFER_LIMIT = Gb(256);
 static const uint64_t DEFAULT_BLOCK_SIZE = MB(64);
 static const int DEFAULT_REPLICA_COUNT = 3;
 
-namespace util {
-    template<class InputIt, class T>
-    constexpr InputIt find(InputIt first, InputIt last, const T& value)
-    {  
-        for (; first != last; ++first) {
-            if (*first == value) {
-                return first;
-            }
-        }
-        return last;
-    }
-}
 
 #endif //FLOW_SIM_CONFIG_H

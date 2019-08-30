@@ -3,20 +3,23 @@
 #include <tuple>
 #include <vector>
 #include <cstring>
+#include <map>
 #include "flowsim_config_macro.h"
 
 struct Link {
-    double capacity;
+    double link_speed;
     int flow_count; // # of flows always transmitting
     std::vector<int> flow_counts; // # of flows in TDMA channels
     int num_slot;
     int channel_count;
+    double transmit_slot_time;
+    //dobule link_speed
 
-    //TODO: add two variables for for a link
-    //recv_cap
-    //send_cap
+    
     // flow_id -> rate at each topo slice
     std::map<uint64_t, std::vector<double>> rate_map;
+    // available capacity for the future flows
+    std::vector<std::vector<double>> avail_capacity; //pre_slot-based
 
     // using std::vector for brevity. It should be changed to **ptr matrix as follow:
     // int **twohop_flow_counts;
@@ -30,16 +33,37 @@ struct Link {
 
     Link(double capacity, int channel_count = 0, int num_slot = 8)
         //: capacity(capacity), flow_count(0), flow_counts(std::vector<int>(static_cast<unsigned long>(channel_count))) {}
-        : capacity(capacity)
+        : link_speed(capacity)
         ,num_slot(num_slot)
         ,channel_count(channel_count)
         ,flow_count(0)
+        ,transmit_slot_time(DEFAULT_SLOT_TIME * DEFAULT_DUTY_CYCLE)
         ,twohopflow_counts(std::vector<int>(channel_count))
         ,flow_counts(std::vector<int>(channel_count)){ //,twohop_flow_counts(nullptr) {
         for(int slot = 0; slot < num_slot ; slot++){
             perslot_flowcount.push_back(std::vector<int>(channel_count));
+            avail_capacity.push_back(std::vector<double>(channel_count));
         }
         //InitializeFlowCountMatrix(capacity, channel_count, num_slot);
+    }
+
+    double getAvailCapacity(int channel, int slot){
+        return avail_capacity[slot][channel];
+    }
+
+    std::vector<double> getCapacityVector(int slot){
+        return avail_capacity[slot];
+    }
+
+    void ReduceAvailCapacity(int channel, int slot, double value){
+        avail_capacity[slot][channel] = avail_capacity[slot][channel] - value;
+    }
+
+    void ResetFlowStats() {
+        for(int slot = 0; slot < num_slot ; slot++){
+            std:fill(avail_capacity[slot].begin(), avail_capacity[slot].end(), transmit_slot_time*link_speed);
+        }
+        rate_map.clear();
     }
 
     double GetRatePerFlow(int channel, int slot) const {
@@ -56,7 +80,7 @@ struct Link {
         if (total_flow_count == 0)
             return 0;
         else
-            return capacity / total_flow_count;
+            return link_speed / total_flow_count;
     }
 
 
@@ -71,9 +95,10 @@ struct Link {
         if (total_flow_count == 0)
             return 0;
         else
-            return capacity / total_flow_count;
+            return link_speed / total_flow_count;
     }
 
+    
     void ResetFlowCounts() {
         flow_count = 0;
         fill(flow_counts.begin(), flow_counts.end(), 0);

@@ -5,36 +5,50 @@
 #include <fstream> 
 #include <sstream>
 #include <numeric>
+
 #include "flowsim_config_macro.h"
 #include "flowsim_topo_rotor.h"
 
+uint64_t SingleLayerRotorSimulator::GetInterTorLinkId(uint64_t src_rack, uint64_t dst_rack) const{
+    return (src_rack << 32) | (dst_rack & 0xffffffff);
+}
+
 void SingleLayerRotorSimulator::InitializeLinks(){
+    double tor_link_speed = link_speed * (double)hosts_per_rack;
+
     for (uint64_t host_id = 0; host_id < rack_count * hosts_per_rack; host_id++) {
-        //Link link0(link_speed, channel_count, num_slots);
-        //link0.InitializeFlowCountMatrix(link_speed, channel_count, num_slots);
-
-        //Link link1(link_speed, channel_count, num_slots);
-        //link1.InitializeFlowCountMatrix(link_speed, channel_count, num_slots);
-
-        //links[std::make_tuple(HOST_TOR, host_id)] = std::move(link0);
-        //links[std::make_tuple(TOR_HOST, host_id)] = std::move(link1);
-        //links.emplace(std::make_pair(std::make_tuple(HOST_TOR, host_id), std::move(link0)));
-        //links.emplace(std::make_pair(std::make_tuple(TOR_HOST, host_id), std::move(link1)));
-
         links.emplace(std::make_pair(std::make_tuple(HOST_TOR, host_id), Link(link_speed, channel_count, num_slots)));
         links.emplace(std::make_pair(std::make_tuple(TOR_HOST, host_id), Link(link_speed, channel_count, num_slots)));
-    }    
+    }
+
+    for (size_t src_rack = 0; src_rack < rack_count; src_rack++)
+        for (size_t dst_rack = 0; dst_rack < rack_count; dst_rack++) {
+            if (src_rack == dst_rack)
+                continue;
+            uint64_t tor_tor_id = GetInterTorLinkId(src_rack, dst_rack);
+            links.emplace(make_pair(std::make_tuple(TOR_TOR, tor_tor_id), Link(tor_link_speed, channel_count)));
+        }
+
 }
 
 std::vector<link_id_t> SingleLayerRotorSimulator::GetLinkIds(const Flow &flow) const{
     std::vector<link_id_t> linkid_list;
     linkid_list.emplace_back(std::make_tuple(HOST_TOR, flow.src_host));
+
+    const uint64_t mask = 0xffffffff;
+    uint64_t src_rack = cluster.GetRackId(flow.src_host) & mask;
+    uint64_t dst_rack = cluster.GetRackId(flow.dst_host) & mask;
+    if (src_rack != dst_rack) {
+        uint64_t tor_tor_id = GetInterTorLinkId(src_rack, dst_rack);
+        linkid_list.emplace_back(std::make_tuple(TOR_TOR, tor_tor_id));
+    }
+
     linkid_list.emplace_back(std::make_tuple(TOR_HOST, flow.dst_host));
     return linkid_list;
 }
 
 
-void SingleLayerRotorSimulator::IncrementLinkFlowCount(const Flow &flow){
+/*void SingleLayerRotorSimulator::IncrementLinkFlowCount(const Flow &flow){
     //std::cout << "IncrementLinkFlowCount" << "\n";
     for (int slot = 0; slot < num_slots; slot++){ //which slot in a cycle?  
         std::tuple<int, int> channels = GetFlowChannel(flow.src_host, flow.dst_host, slot);
@@ -60,43 +74,7 @@ void SingleLayerRotorSimulator::IncrementLinkFlowCount(const Flow &flow){
             }    
         }
     }
-
-}    
-// Add flow counts for one-hop flow
-/*void SingleLayerRotorSimulator::IncrementLinkFlowCount(const Flow &flow){
-    std::cout << "IncrementLinkFlowCount" << "\n";
-    std::set<std::tuple<int, int>> channels_set;
-    for (int slot = 0; slot < num_slots; slot++){ //which slot in a cycle?  
-        std::tuple<int, int> channels = GetFlowChannel(flow.src_host, flow.dst_host, slot);
-        if(std::get<0>(channels) >= 0 && std::get<1>(channels) >= 0){
-            channels_set.insert(channels);
-        }
-    }
-    if(!channels_set.empty()){
-        for (auto iter = channels_set.begin(); iter != channels_set.end(); ++iter){
-            std::tuple<int, int> channels = *iter; 
-            int src_channel = std::get<0>(channels);
-            int dst_channel = std::get<1>(channels); 
-            for (const auto &link_id: GetLinkIds(flow)){
-                LinkType linktype = std::get<0>(link_id);
-                if(linktype == HOST_TOR && src_channel >= 0  && src_channel < HOST_CHANNELS){
-                    links.at(link_id).IncrementFlowCount(src_channel);
-                    //std::cout << "src channel:" <<  flow.src_channel <<"\n";
-                    //std::cout << "HOST_TOR" << "\n";
-                }
-                else if (linktype == TOR_HOST && dst_channel >= 0 && dst_channel < HOST_CHANNELS){
-                    links.at(link_id).IncrementFlowCount(dst_channel);
-                    //std::cout << "dst channel:" <<  flow.dst_channel <<"\n";
-                    //std::cout << "TOR_HOST" << "\n";
-                }
-                else{
-                    std::cout << "IncrementLinkFlowCount doesn't have a valid channel" << "\n";
-                    //links.at(link_id).IncrementFlowCount(); 
-                }
-            }
-        }
-    }
-}*/
+}*/    
 
 //TODO: This needs to be added a section to support ROTOR_LB_TWO_HOP
 uint64_t SingleLayerRotorSimulator::GetTransmittedBytes(const Flow &flow, double interval) const{
@@ -172,7 +150,7 @@ double SingleLayerRotorSimulator::GetFlowRemainingTime(const Flow &flow) const{
     // ***TODO***
     // we need an exceptional case here, for the rotorlb two-hop,
     // the first occurance of a path in the first cycle cannot have a buffered two-hop path
-    #if ROTOR_LB_TWO_HOP
+    #if TWO_HOP_PATH
     double first_slot_rate = 0;
     std::vector<double> rate_firstcycle = GetRatesForFirstCycle(flow);
     std::cout<<" the first cycle \n";
@@ -199,7 +177,7 @@ double SingleLayerRotorSimulator::GetFlowRemainingTime(const Flow &flow) const{
         double transmit_slot_remaining_time = transmit_slot_time - time_in_slot;
         uint64_t partial_bytes = 0;
 
-        #if ROTOR_LB_TWO_HOP
+        #if TWO_HOP_PATH
         if( which_cycle ==0 &&  slotnum_now ==0){// an edge case for the first slot in first cycle, which cannot have a buffered two-hop connection 
             //std::cout<<" the first slot in first cycle \n";
             partial_bytes = (uint64_t) (first_slot_rate *transmit_slot_remaining_time);
@@ -223,7 +201,7 @@ double SingleLayerRotorSimulator::GetFlowRemainingTime(const Flow &flow) const{
     }
     std::cout << "time_in_slot:" << time_in_slot << "\n";
 
-    #if ROTOR_LB_TWO_HOP 
+    #if TWO_HOP_PATH 
     uint64_t first_cycle_throughput = std::accumulate(first_cycle_bytes.begin(), first_cycle_bytes.end(), (uint64_t)0);
     if(time_in_slot == transmit_slot_time){
         first_cycle_throughput = first_cycle_throughput - first_cycle_bytes[0]; // subtract the first slot from first_cycle_throughput 
@@ -244,7 +222,7 @@ double SingleLayerRotorSimulator::GetFlowRemainingTime(const Flow &flow) const{
     double whole_cycles_time = (double) whole_cycles * cycle_time;
 
     // Minor adjustment for cycles_time
-    #if ROTOR_LB_TWO_HOP
+    #if TWO_HOP_PATH
     whole_cycles_time = whole_cycles_time - cycle_time; // subtract the first cycle from the other cycles   
     #else
     whole_cycles_time = whole_cycles_time - total_slot_time; //count the slot above twice in this pre-cycle calculation. 
@@ -336,7 +314,7 @@ std::tuple<int, int> SingleLayerRotorSimulator::GetFlowChannel(uint64_t src_host
 /*double SingleLayerRotorSimulator::GetFlowRateForDownRotors(const Flow &flow) const{    
     return 0.0;
 }*/
-#if ROTOR_LB_TWO_HOP
+#if TWO_HOP_PATH
 std::vector<double> SingleLayerRotorSimulator::GetRatesForFirstCycle(const Flow &flow) const{
     std::vector<double> rate_diff(num_slots);// flow rate at each time slot.
     std::fill(rate_diff.begin(), rate_diff.end(), (double)0);
@@ -445,7 +423,7 @@ std::vector<double> SingleLayerRotorSimulator::GetRatesPerCycle(const Flow &flow
                 auto flow_rate_twohop = *min_element(link_rates.begin(), link_rates.end());
                 std::cout << std::fixed << "twp-hop rate:"<< flow_rate_twohop <<"\n";
 
-                #if ROTOR_LB_TWO_HOP
+                #if TWO_HOP_PATH
                 //int next_slot = (slot+1)%num_slots;
                 rate_vec[slot] += flow_rate_twohop;
                 #endif
@@ -592,7 +570,6 @@ bool SingleLayerRotorSimulator::UpdateTwoHopLinkFlowCount(const Flow &flow){
     //std::set<int> src_channels_set;
     //std::set<std::tuple<int, int>> channels_mid_dst;
 
-    #if ROTOR_LB_TWO_HOP
     for (int slot = 0; slot < num_slots; slot++){
         std::cout << "slot:"<< slot <<" ,"; 
         auto slot_mapset = dst_midlist.at(slot);
@@ -621,82 +598,395 @@ bool SingleLayerRotorSimulator::UpdateTwoHopLinkFlowCount(const Flow &flow){
         std::cout << "\n";
         //else{std::cout << "no two-hop path for dst " << dst_host << ", check one-hop path\n";}
     }// for slots
-    #endif
-
-    #if RESTRICTED_ROTORLB
-    for (int slot = 0; slot < num_slots; slot++){
-        std::set<uint64_t> rotorlb_slotset;
-        auto slot_now  = dst_midlist.at(slot%num_slots);
-        auto slot_next = dst_midlist.at((slot+1)%num_slots);
-        auto found_dst_now = slot_now.find(dst_host);
-        auto found_dst_next = slot_next.find(dst_host);
-        if(found_dst_now != slot_now.end() && found_dst_next != slot_next.end()){
-            //std::cout << "slot:" << slot << "\n"; 
-            auto midlist_now = slot_now.at(dst_host);
-            auto midlist_next = slot_next.at(dst_host);
-            //find overlapped elements in vec mid_list_now and mid_list_next
-            for(auto mid_host:midlist_now){
-                auto found_rotorlb = midlist_next.find(mid_host);                
-                // 1. ensure we found a mid_host existed in two consecutive slots: slot_now and slot_next
-                // ? 2. ensure a distinct two-hop path for this topo
-                if(found_rotorlb != midlist_next.end()){ //&& two_hop_set.find(mid_host) == two_hop_set.end()){
-                    //std::cout << "slot:" << slot << "\n"; 
-                    //std::cout <<"rotorlb path:"<< src_host << "->" << mid_host << "->" << dst_host << "\n";
-                    auto uplink1 = std::make_tuple(HOST_TOR, flow.src_host);
-                    auto uplink2 = std::make_tuple(TOR_HOST, mid_host);
-                    std::tuple<int, int> channels = GetFlowChannel(flow.src_host, mid_host, (slot+1)%num_slots );
-                    int src_channel  = std::get<0>(channels);
-                    int mid_channel0 = std::get<1>(channels);
-                    /*auto existed = src_channels_set.find(src_channel);
-                    if(existed == src_channels_set.end()){ 
-                        links.at(uplink1).IncrementTwohopFlowCount(src_channel, slot);
-                        src_channels_set.insert(src_channel);
-                    }
-                    else{
-                        std::cout<< "overlap channel on " << src_channel << "\n";
-                    }*/
-                    links.at(uplink1).IncrementTwohopFlowCount(src_channel, (slot+1)%num_slots);
-                    links.at(uplink2).IncrementTwohopFlowCount(mid_channel0, (slot+1)%num_slots);
-
-                    auto downlink1 = std::make_tuple(HOST_TOR, mid_host);
-                    auto downlink2 = std::make_tuple(TOR_HOST, flow.dst_host);
-                    channels = GetFlowChannel(mid_host, flow.dst_host, slot);
-                    int mid_channel1 = std::get<0>(channels);
-                    int dst_channel  = std::get<1>(channels);  
-                    links.at(downlink1).IncrementTwohopFlowCount(mid_channel1, (slot+1)%num_slots);
-                    links.at(downlink2).IncrementTwohopFlowCount(dst_channel, (slot+1)%num_slots);
-
-                    //two_hop_set.insert(mid_host);
-                    //std::cout << "-> midhost:" << mid_host << "\n";
-                    rotorlb_slotset.insert(mid_host); 
-                }
-                /*else if(found_rotorlb != midlist_next.end()){
-                     std::cout << "-> midhost:" << mid_host << "\n";
-                    rotorlb_slot_mapset[dst_host].insert(mid_host);
-                }*/
-                //else you screwed up
-            }
-        }
-        //else you screwed up
-        auto& map_set = rotorlb_midlist[(slot+1)%num_slots];
-        map_set[dst_host] = rotorlb_slotset; 
-        //std::move(rotorlb_slot_mapset);
-        //rotorlb_midlist[(slot+1)%num_slots]= std::move(rotorlb_slot_mapset);
-    }
-
-    /*for (int slot = 0; slot < num_slots; slot++){
-        auto map = rotorlb_midlist[slot];
-        std::set<uint64_t> dst_set = map[dst_host];
-        for(auto iter = dst_set.begin(); iter != dst_set.end(); ++iter){
-            std::cout << "slot:" << slot << " dst_set:" << *iter <<"\n";
-        }
-    }*/
-    #endif
-
     return true;
 }
 #endif
 
+
+void SingleLayerRotorSimulator::InitializePerNodeMatrices(){
+    for(auto map_iter = cluster.hosts.begin(); map_iter != cluster.hosts.end(); ++map_iter){ // sweep mid nodes
+        uint64_t host_id = map_iter->first;
+        SimpleNode& node = cluster.hosts[host_id];
+        node.InitFlowMatrices(cluster.hosts.size());
+    }
+}
+
+/*  SimpleNode: 
+    std::vector<std::vector<double>> buffer_matrix; 
+    std::vector<std::vector<double>> direct_matrix; 
+    std::vector<std::vector<double>> accept_matrix; 
+    std::vector<uint64_t> flow_list;
+    double getBufferMatrix(int row, int col);
+    void updateBufferMatrix(int row, int col, double val);
+*/
+
+void SingleLayerRotorSimulator::RotorlbDirectPhase(std::vector<uint64_t> src_hosts, std::vector<uint64_t> dst_hosts, int slice_num){
+
+    int slice = slice_num % num_slots;
+    if(src_hosts.size() == dst_hosts.size()){ // this should be fukcing true as hell  
+    }
+    else{
+        std::cout << "weird shit happens!";
+    }
+
+    double  max_bytes = transmit_slot_time * link_speed;
+    //Init direct value, we assume sending max bytes til the flow completes!
+    for(int j= 0; j < src_hosts.size(); j++){
+            SimpleNode& src_node = cluster.hosts[src_hosts[j]];
+            src_node.updateDirectValue(dst_hosts[j], max_bytes);
+    }
+
+    // RLB Phase 1 Step 1 
+    // sweep all nodes, since this is for intermediate nodes
+    // determine the buffer size to be sent for the 2nd hop of two-hop paths    
+    for(auto map_iter = cluster.hosts.begin(); map_iter != cluster.hosts.end(); ++map_iter){ // sweep mid nodes
+        uint64_t mid = map_iter->first;
+        SimpleNode& mid_node = cluster.hosts[mid];
+
+        // our src and dst at the same index belong to the sane flow, see UpdateLinkDemand()
+        for (int j = 0; j < dst_hosts.size(); j++) { // sweep dst nodes       
+            uint64_t dst = dst_hosts[j];
+            uint64_t src = src_hosts[j];
+            int src_int = static_cast<int>(src);
+            int dst_int = static_cast<int>(dst);
+
+            auto channels = GetFlowChannel(mid, dst, slice);
+            int mid_channel = std::get<0>(channels);
+            int dst_channel = std::get<1>(channels);
+            if( mid_channel == -1 || dst_channel == -1 ){ // no connection !
+                continue;
+            } 
+
+            if(mid != dst && mid != src){
+                double buf_bytes = mid_node.getBufferValue(src_int, dst_int);
+                if(buf_bytes > max_bytes){
+                    buf_bytes = max_bytes;
+                }
+
+
+                if(buf_bytes > 0){
+                    std::cout << "flow:" << +src << "->"<< +dst << " \n";
+                    std::cout << "phase 1 mid host " << +mid << "->" << +dst << " transmits " << buf_bytes << "\n";
+                    //std::cout << " is transmitting data\n";                   
+                    double min_cap = 0;
+                    double mid_cap = links.at(std::make_tuple(HOST_TOR, mid)).getAvailCapacity(mid_channel, slice);
+                    double dst_cap = links.at(std::make_tuple(TOR_HOST, dst)).getAvailCapacity(mid_channel, slice);
+                    if(mid_cap > dst_cap){
+                        min_cap = dst_cap;
+                    }
+                    else{
+                        min_cap = mid_cap;
+                    }
+                    mid_node.updateBufferValue(src_int, dst_int, buf_bytes - min_cap);
+                    links.at(std::make_tuple(HOST_TOR, mid)).ReduceAvailCapacity(mid_channel, slice, buf_bytes);
+                    links.at(std::make_tuple(TOR_HOST, dst)).ReduceAvailCapacity(dst_channel, slice, buf_bytes);
+
+                    if(slice_num/num_slots == 0){
+                        for(const auto& f : flows){
+                            if(f.matchFlow(src, dst)){
+                                auto& rate_vec = first_cycle_rate.at(f.flow_id);
+                                int flow_count = flow_count_matrix[src][dst];
+                                if(flow_count == 1){
+                                    rate_vec[slice] += buf_bytes/transmit_slot_time;
+                                }
+                                else{
+                                    double rate = buf_bytes/transmit_slot_time ;
+                                    rate = rate/(double) flow_count;
+                                    rate_vec[slice] += rate;
+                                }
+                            }
+                        }
+                    }
+                    else{
+                        for(const auto& f : flows){
+                            if(f.matchFlow(src, dst)){
+                                auto& rate_vec =deliver_rate_matrix.at(f.flow_id);
+                                //check flow count with the same src and dst:
+                                int flow_count = flow_count_matrix[src][dst];
+                                if(flow_count == 1){
+                                    rate_vec[slice] += buf_bytes/transmit_slot_time;
+                                }
+                                else{
+                                    double rate = buf_bytes/transmit_slot_time ;
+                                    rate = rate/(double) flow_count;
+                                    rate_vec[slice] += rate;
+                                }
+                            }
+                        }
+
+                    }                
+                }
+            }
+        }
+    }
+
+    // RLB Phase 1 Step 2
+    // sweep all src nodes to see if we can use the left-over capacity to send data through 1-hop path 
+
+    /*
+    std::vector<double> src_cap_list(cluster.hosts.size());
+    std::vector<double> dst_cap_list(cluster.hosts.size());
+    std::vector<std::vector<double>> direct_traffic(cluster.hosts.size());
+    for(int index = 0; index < cluster.hosts.size(); index ++){  
+        direct_traffic[index] = std::vector<double>(cluster.hosts.size());
+    }
+    for(int index = 0; index < src_hosts.size(); index ++){  
+        uint64_t src_id = src_hosts[index];
+        uint64_t dst_id = dst_hosts[index];
+        auto channels = GetFlowChannel(src_id, dst_id, slice);
+        int src_channel = std::get<0>(channels);
+        int dst_channel = std::get<1>(channels);  
+        if( src_channel == -1 || dst_channel == -1 ){ // no connection !
+            continue;
+        }
+
+        int src = static_cast<int>(src_id);
+        int dst = static_cast<int>(dst_id);
+        double src_cap = links.at(std::make_tuple(HOST_TOR, src_id)).getAvailCapacity(src_channel, slice);
+        double dst_cap = links.at(std::make_tuple(TOR_HOST, dst_id)).getAvailCapacity(dst_channel, slice);
+        src_cap_list[src] = src_cap;
+        dst_cap_list[dst] = dst_cap;
+    }
+    for(int i = 0; i < src_hosts.size(); i++){  
+        uint64_t src_id = src_hosts[i];
+        int src = static_cast<int>(src_id);
+        SimpleNode& src_node = cluster.hosts[src];
+        for(int j = 0; j < dst_hosts.size(); j++){
+            uint64_t dst_id = dst_hosts[j];
+            int dst = static_cast<int>(dst_id);
+            //TODO: direct_taffic needs fixed!!!!
+            direct_traffic[src][dst] = src_node.getDirectValue(dst); 
+        }   
+    }
+    direct_traffic = util::fairshare2d(direct_traffic, src_cap_list, dst_cap_list);*/
+
+    for(int index = 0; index < src_hosts.size(); index ++){
+        uint64_t src = src_hosts[index]; 
+        uint64_t dst = dst_hosts[index];
+        SimpleNode& src_node = cluster.hosts[src];
+        auto channels = GetFlowChannel(src, dst, slice);
+        int src_channel = std::get<0>(channels);
+        int dst_channel = std::get<1>(channels);
+        if( src_channel == -1 || dst_channel == -1 ){ // no connection !
+            continue;
+        }
+        
+        double direct_bytes = src_node.getDirectValue(static_cast<int>(dst)); //std::accumulate(direct_traffic[index].begin(), direct_traffic[index].end(), 0.0);
+        if(direct_bytes > 0){
+            //src_cap_list[static_cast<int>(src)] = src_cap_list[static_cast<int>(src)] - direct_bytes;
+            double min_cap = 0;
+            double src_cap = links.at(std::make_tuple(HOST_TOR, src)).getAvailCapacity(src_channel, slice);
+            double dst_cap = links.at(std::make_tuple(TOR_HOST, dst)).getAvailCapacity(dst_channel, slice);
+            if(src_cap > dst_cap){
+                min_cap = dst_cap;
+            }
+            else{
+                min_cap = src_cap;
+            }
+
+            // Note, this is a workaround, not accurately relfect the actual size of reamining data
+            // we assume that the remaining data size >>>  direct_bytes, so data transfer won't finished in a slot.
+            // therefore, the remain value is still direct_bytes, i.e. the max_bytes
+            src_node.updateDirectValue(static_cast<int>(dst), direct_bytes - min_cap);
+            std::cout << std::fixed << "phase 1 src host " << +src << "->" << +dst << " transmits " << direct_bytes << "\n";
+            //std::cout << std::fixed << "phase 1 src host " << +src << " transmits " << direct_bytes << "\n";
+            links.at(std::make_tuple(HOST_TOR, src)).ReduceAvailCapacity(src_channel, slice, direct_bytes);
+            links.at(std::make_tuple(TOR_HOST, dst)).ReduceAvailCapacity(dst_channel, slice, direct_bytes);
+            
+            if(slice_num/num_slots == 0){
+                for(const auto& f : flows){
+                    if(f.matchFlow(src, dst)){
+                        auto& rate_vec = first_cycle_rate.at(f.flow_id);
+                        int flow_count = flow_count_matrix[src][dst];
+                        if(flow_count == 1){
+                            rate_vec[slice] += direct_bytes/transmit_slot_time;
+                        }
+                        else{
+                            double rate = direct_bytes/transmit_slot_time ;
+                            rate = rate/(double) flow_count;
+                            rate_vec[slice] += direct_bytes/transmit_slot_time;
+                        }
+                    }
+                }
+            }
+            else{            
+                for(const auto& f : flows){
+                    if(f.matchFlow(src, dst)){
+                        auto& rate_vec = deliver_rate_matrix.at(f.flow_id);
+                        int flow_count = flow_count_matrix[src][dst];
+                        if(flow_count == 1){
+                            rate_vec[slice] += direct_bytes/transmit_slot_time;
+                        }
+                        else{
+                            double rate = direct_bytes/transmit_slot_time ;
+                            rate = rate/(double) flow_count;
+                            rate_vec[slice] += rate;
+                        }
+                    }
+                } 
+            }    
+        }
+    }
+
+    // RLB Phase 1 Step 3
+    // use the remaining link cap to send out some traffic from soure nodes.
+    // this is the proposed traffic!
+    //for(int index = 0; index < src_hosts.size(); index ++){
+    for (int index = 0; index < src_hosts.size(); index++) {
+        uint64_t src = src_hosts[index];
+        uint64_t dst = dst_hosts[index];
+        SimpleNode& src_node = cluster.hosts[src];
+        auto dir_val = src_node.getDirectValue(static_cast<int>(dst));
+        std::cout << "flow:" << +src << "->"<< +dst << " \n";
+
+        for(auto map_iter = cluster.hosts.begin(); map_iter != cluster.hosts.end(); ++map_iter){    
+            uint64_t mid = map_iter->first;
+            SimpleNode& mid_node = cluster.hosts[mid];
+            if(src != mid && dst != mid){
+                auto channels = GetFlowChannel(src, mid, slice);
+                int mid_channel = std::get<1>(channels);
+                int src_channel =  std::get<0>(channels);
+                if( mid_channel == -1 || src_channel == -1 ){ // no connection !
+                    continue;
+                }
+                //double src_cap = links.at(std::make_tuple(HOST_TOR, src)).getAvailCapacity(src_channel, slice);    
+                std::cout << "proposed:"<< +src << "->"<< +mid << ",";
+                std::cout << std::fixed << "val:" << dir_val << "\n";
+                //std::vector<double> prop_vec = util::fairshare1d(dir_vec, src_cap, true); // fairshare according to remaining link capacity
+                src_node.proposals[static_cast<int>(mid)] = dir_val;
+                //proposals[static_cast<int>(src)][static_cast<int>(mid)] = dir_val; //prop_vec;
+            }
+        }
+    }
+
+}
+
+void SingleLayerRotorSimulator::RotorlbBufferPhase(std::vector<uint64_t> src_hosts, std::vector<uint64_t> dst_hosts, int slice){
+    /* From RoterNet paper Sec 5.2:
+    The amount of non-local traffic it can accept per destination is equal to 
+    the difference between amount of traffoc that can be sent during one matching slot 
+    and the total queued local and non-local traffic
+    */
+    double max_bytes = transmit_slot_time * link_speed;
+    std::vector<double> mid_cap_list(cluster.hosts.size());
+
+    //Phase 2 allocate buffer for non-local traffic, return acceptances!
+    for(int j= 0; j < src_hosts.size(); j++){ //for non-local traffic it can accept per destination
+        std::vector<double> avail_space(cluster.hosts.size());
+        uint64_t dst_id = dst_hosts[j];
+        uint64_t src_id = src_hosts[j];
+        SimpleNode& src_node = cluster.hosts[src_id];
+        int dst = static_cast<int>(dst_id);
+        int src = static_cast<int>(src_id);
+        std::cout << "flow:" << +src_id << "->"<< +dst_id << " \n";
+
+        //auto prop_vec = proposals[src];
+        double mid_cap = 0;
+        for(auto map_iter = cluster.hosts.begin(); map_iter != cluster.hosts.end(); ++map_iter){ // sweep mid nodes
+            uint64_t mid_id = map_iter->first;
+            SimpleNode& mid_node = cluster.hosts[mid_id];
+            int mid_int = static_cast<int>(mid_id);
+
+            if(mid_id != dst_id && mid_id != src_id){
+                auto channels = GetFlowChannel(src_id, mid_id, slice);
+                int mid_channel = std::get<1>(channels);
+                int src_channel =  std::get<0>(channels);
+                if( mid_channel == -1 || src_channel == -1 ){ // no connection !
+                    continue;
+                } 
+
+                double indir_val = mid_node.getBufferValue(src, dst);
+                double dir_val   = mid_node.getDirectValue(dst);
+
+                // no one is sharing the link cap,  
+                //mid_cap = links.at(std::make_tuple(TOR_HOST, mid_id)).getAvailCapacity(mid_channel, slice);
+                avail_space[mid_int] = max_bytes - indir_val - dir_val;
+                if( avail_space[mid_int] < 0)
+                    avail_space[mid_int] = 0;
+
+                double prop_val = src_node.proposals[static_cast<int>(mid_id)];
+
+                if(avail_space[mid_int] <= prop_val){
+                    mid_node.acceptances[src] = avail_space[mid_int];
+                }
+                else{ // avail_space[mid_int] > prop_vec[mid_int]
+                    std::cout << "proposing too little:"<< prop_val <<"\n";
+                    //std::cout << "proposing too little\n";
+                    mid_node.acceptances[src]  = prop_val;
+                }
+
+                std::cout << "phase 2 mid:" << +mid_id << "<-"<< +src_id << "accepts "<< mid_node.acceptances[src] <<" \n";
+
+                double buf_val = mid_node.getBufferValue(src, dst);
+                buf_val = buf_val + mid_node.acceptances[src];
+                mid_node.updateBufferValue(src, dst, buf_val);
+                std::cout << "phase 3 mid:" <<  +mid_id << "buf_val:" << buf_val << "\n";
+            }
+        }
+
+        //acceptances = util::fairshare2d(proposals, avail_space, mid_cap_list);//, avail_space);
+
+        //Phase 3 transfer data based on on acceptances per node
+        /*for(auto map_iter = cluster.hosts.begin(); map_iter != cluster.hosts.end(); ++map_iter){ // sweep mid nodes
+            uint64_t mid_id = map_iter->first;
+            SimpleNode& mid_node = cluster.hosts[mid_id];
+            int mid_int = static_cast<int>(mid_id);
+
+            double buf_val = 0;
+            if(mid_id != dst_id && mid_id != src_id){
+                auto channels = GetFlowChannel(src_id, mid_id, slice);
+                int src_channel = std::get<0>(channels);
+                int mid_channel = std::get<1>(channels);
+                if( mid_channel == -1 || src_channel == -1 ){ // no connection !
+                    continue;
+                } 
+
+                buf_val = mid_node.getBufferValue(src, dst);
+                buf_val = buf_val + acceptances[src][mid_int];
+                mid_node.updateBufferValue(src, dst, buf_val);
+            }
+            buf_val = mid_node.getBufferValue(src, dst);
+            std::cout << "phase 3 mid:" <<  +mid_id << "buf_val:" << buf_val << "\n";
+        }*/
+    }
+}
+
+void SingleLayerRotorSimulator::UpdateLinkDemand(){
+
+    TestFlowsPerSlice();
+    /*fprintf(stderr, "Scanning %zu flows to update demand ...\n", flows.size());
+
+    for(auto map_iter = links.begin(); map_iter != links.end(); ++map_iter){
+        map_iter->second.ResetFlowStats();
+    }
+
+    for(int index = 0; index < cluster.hosts.size(); index ++){ 
+            std::fill(flow_count_matrix[index].begin(), flow_count_matrix[index].end(), 0);
+    }
+
+    std::vector<uint64_t> src_hosts;
+    std::vector<uint64_t> dst_hosts;
+    double max_bytes = transmit_slot_time * link_speed;
+
+    for (const auto &flow: flows) {
+        if (!flow.HasStarted(time_now) || flow.IsCompleted()){
+            continue;
+        }
+        src_hosts.push_back(flow.src_host);
+        dst_hosts.push_back(flow.dst_host);
+        flow_count_matrix[flow.src_host][flow.dst_host]++;
+        auto vec = std::vector<double>(num_slots);
+        std::fill(vec. begin(),vec.end(), 0.0);
+        deliver_rate_matrix.at(flow.flow_id) = vec;
+    }
+
+    for(int slice; slice < num_slots; slice++){
+        RotorlbDirectPhase(src_hosts, dst_hosts, slice);
+        RotorlbBufferPhase(src_hosts, dst_hosts, slice);
+    }*/
+}
+
+/*
 void SingleLayerRotorSimulator::UpdateLinkDemand(){
     double time_in_cycle = fmod(time_now, cycle_time);
     int slotnum = (int)std::floor(time_in_cycle / total_slot_time); //which slot in a cycle?
@@ -717,8 +1007,7 @@ void SingleLayerRotorSimulator::UpdateLinkDemand(){
         bool updated = UpdateTwoHopLinkFlowCount(flow);
         #endif
     }
-
-}
+}*/
 
 // host-0   host-1   host-2   host-3   host-4   host-5   host-6   host-7
 // 7 2 0 3, 4 6 3 5, 2 0 4 7, 3 4 1 0, 1 3 2 6, 6 5 7 1, 5 1 6 4, 0 7 5 2

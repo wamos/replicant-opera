@@ -1,8 +1,7 @@
-#include <utility>
-
 #ifndef FLOW_SIM_ISIMULATOR_H
 #define FLOW_SIM_ISIMULATOR_H
 
+#include <utility>
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
@@ -118,14 +117,6 @@ protected:
 
     std::map<link_id_t, Link> links;
 
-    // This vector does not bind to links, here we only care about the <src, dst> pair,
-    // consider this case: we have two flows from node 0 to node 1,
-    // seperated flow rate needs to be provided.
-    // TODO: needs to init so we can update the matrix when AddFlow() is called
-    std::vector<std::vector<int>> flow_count_matrix; 
-    // flow_id -> rate at each topo slice
-    std::map<uint64_t, std::vector<double>> deliver_rate_matrix; 
-
     std::vector<Flow> flows;
     std::map<size_t, std::vector<const Flow *>> all_completed_flows;
 
@@ -193,6 +184,8 @@ public:
 
     std::vector<const Flow *> RunToNextCompletion() {
         UpdateLinkDemand();
+        
+        std::exit(0);
 
         if (!GetNextFlowEvent()){
             std::cout<< "no next flow event\n";
