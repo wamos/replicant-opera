@@ -19,7 +19,7 @@ struct Link {
     // flow_id -> rate at each topo slice
     std::map<uint64_t, std::vector<double>> rate_map;
     // available capacity for the future flows
-    std::vector<std::vector<double>> avail_capacity; //pre_slot-based
+    std::vector<std::vector<double>> avail_capacity; //pre slice based
 
     // using std::vector for brevity. It should be changed to **ptr matrix as follow:
     // int **twohop_flow_counts;

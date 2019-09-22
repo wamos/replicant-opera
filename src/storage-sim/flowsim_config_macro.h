@@ -14,7 +14,7 @@
 //#define Gb(n) ((uint64_t)n * 1024 * 1024 * 1024 / 8)
 #define Gb(n) ((uint64_t)n * 1000 * 1000 * 1000 / 8)
 
-enum LinkType { HOST_TOR, TOR_CORE, CORE_TOR, TOR_HOST, TOR_TOR };
+enum LinkType { HOST_TOR, TOR_CORE, CORE_TOR, TOR_HOST, TOR_ROTOR, ROTOR_TOR};
 typedef std::tuple<LinkType, uint64_t> link_id_t;
 
 static const uint64_t RACK_COUNT = 8;

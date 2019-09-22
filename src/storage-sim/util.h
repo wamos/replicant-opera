@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <limits>
+#include <iostream>
 //#include <algorithm>
 
 //TODO: why we need inline here?
@@ -18,6 +19,42 @@ namespace util {
         return last;
     }*/
 
+    template<class T>
+    inline void printMatrix(std::vector<std::vector<T>>& matrix, std::string mat_name){
+        //bool all_zeros = true;
+        std::cout << mat_name <<"\n";
+        //assume matrix is n*n
+        for(int i = 0 ; i < matrix.size(); i++){
+            for(int j = 0; j < matrix[0].size();j ++){
+                if(matrix[i][j] != 0){
+                    //all_zeros = false;
+                    std::cout << std::fixed << "[" << i << "," << j << "]:" << matrix[i][j] << "\n";
+                }
+            }
+            //std::cout << "\n";
+        }
+        /*if(all_zeros){
+            std::cout << "all zeros\n";
+        }*/
+    }
+
+
+    template<class T>
+    inline void printVector(std::vector<T>& vec, std::string vec_name){
+        //bool all_zeros = true;
+        std::cout << vec_name <<"\n";
+        for(int i = 0 ; i < vec.size(); i++){
+            if(vec[i] != 0){
+                //all_zeros = false;
+                std::cout << std::fixed << "[" << i << "]:" << vec[i] << "\n" ;
+            }
+        }
+        /*if(all_zeros){
+            std::cout << "all zeros\n";
+        }*/
+        //std::cout << "\n";
+    }
+
     /***
     Max-min fair allocation
     1. maximizes the minimum rate
@@ -31,6 +68,10 @@ namespace util {
     inline std::vector<double> fairshare1d(std::vector<double> input, double cap1, bool extra){
         std::vector<double> sent(input.size());
         int nelem = 0;
+        if(cap1==0){
+            std::fill(sent.begin(), sent.end(), 0);
+            return sent;
+        }
 
         for (int i = 0; i < input.size(); i++){
             if (input[i] > 0){

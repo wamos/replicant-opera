@@ -235,7 +235,8 @@ private:
                 if (node.running_tasks.find(flow->task->task_id) == node.running_tasks.end())
                     throw runtime_error("Task " + to_string(flow->task->task_id) + " not found.");
                 auto &flows = node.running_tasks[flow->task->task_id]->flows;
-                flows.erase(remove(flows.begin(), flows.end(), flow->flow_id), flows.end());
+                //flows.erase(remove(flows.begin(), flows.end(), flow->flow_id), flows.end());
+                std::remove(flows.begin(), flows.end(), flow->flow_id);
                 if (flows.empty()) {
                     flow->task->end_time = simulator->GetCurrentTime();
                     node.finished_tasks.insert(make_pair(flow->task->task_id, flow->task));
@@ -258,7 +259,7 @@ private:
         map<string, map<double, size_t>> fcts;
 
         for (auto &[host_id, node]: cluster.hosts) {
-            for (auto &[task_id, task]: node.completed_tasks) {
+            for (auto &[task_id, task]: node.finished_tasks) {
                 double fct = task->end_time - task->start_time;
                 fcts[task->tag][fct]++;
             }

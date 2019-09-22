@@ -26,31 +26,31 @@ struct Task {
     }
 };
 
-/*struct MetaTask : Task {
+struct BlockReadTask : Task {
     uint64_t file_id;
     uint64_t dst_id;
     std::vector<uint64_t> block_ids;
     Task* dep_task;
     bool isCompleted;
 
-    MetaTask() : Task(static_cast<uint64_t>(-1), 0, "meta"),
+    BlockReadTask() : Task(static_cast<uint64_t>(-1), 0, "block-read"),
             file_id(static_cast<uint64_t>(-1)){}
 
-    MetaTask(uint64_t host_id, uint64_t dst_id,double start_time, uint64_t file_id)
-            : Task(host_id, start_time, "meta"), 
+    BlockReadTask(uint64_t host_id, uint64_t dst_id,double start_time, uint64_t file_id)
+            : Task(host_id, start_time, "block-read"), 
             file_id(file_id){}
 
-    MetaTask(uint64_t host_id, uint64_t dst_id, double start_time, uint64_t file_id, Task* task)
-            : Task(host_id, start_time, "meta"), 
+    BlockReadTask(uint64_t host_id, uint64_t dst_id, double start_time, uint64_t file_id, Task* task)
+            : Task(host_id, start_time, "block-read"), 
             dst_id(dst_id),
             dep_task(task),
             isCompleted(false){}
     
-    bool setDependency(MetaTask* task){
+    bool setDependency(Task* task){
         dep_task = task;
         task->isCompleted = false;
     }
-};*/
+};
 
 struct RWTask: Task{
     uint64_t file_id;
@@ -76,7 +76,7 @@ struct RWTask: Task{
             dst_id(dst_id),
             dep_task(nullptr){} 
 
-    bool setDependency(Task* task){
+    void setDependency(Task* task){
         dep_task = task;
     }
 };

@@ -66,20 +66,21 @@ private:
         uint64_t task_total_count = 0;
         auto& client   = cluster.hosts[0];
         //auto& client   = cluster.hosts[1];
-        auto& server1  = cluster.hosts[2];
+        //auto& server1  = cluster.hosts[4];
         //auto& server1  = cluster.hosts[3];
         //auto& server1  = cluster.hosts[4];
-
-        /*RWTask *read_req_0 = new RWTask(client.hostid, server1.hostid, 0, file_id, block_id, "1stFlow");
-        client.pending_tasks.push(read_req_0);
-        task_total_count++;*/
         /*
+        RWTask *read_req_0 = new RWTask(client.hostid, server1.hostid, 0, file_id, block_id, "1stFlow");
+        client.pending_tasks.push(read_req_0);
+        task_total_count++;
+        
         RWTask *read_req_1 = new RWTask(client.hostid, server1.hostid, 0, file_id, block_id, "2ndFlow");
         client.pending_tasks.push(read_req_1);
         task_total_count++;*/
 
-        for(int index=0; index < 7; index++){
-            RWTask *read_req_0 = new RWTask(client.hostid, cluster.hosts[index+1].hostid, 0, file_id, block_id, "flow_0->"+std::to_string(index+1));
+        for(int index=1; index < 8; index++){
+            //RWTask *read_req_0 = new RWTask(client.hostid, cluster.hosts[index].hostid, 0, file_id, block_id, "flow_0->"+std::to_string(index+1));
+            RWTask *read_req_0 = new RWTask(client.hostid, cluster.hosts[index*4].hostid, 0, file_id, block_id, "flow_0->"+std::to_string(index*4));
             client.pending_tasks.push(read_req_0);
             task_total_count++;
         }
@@ -92,7 +93,7 @@ private:
                 auto current_time =simulator->GetCurrentTime();
                 auto flow_start = current_time;
                 RWTask* task = client.pending_tasks.front();
-                if(task->dst_id > 10){
+                if(task->dst_id > cluster.GetTotalNodeCount()){
                     throw out_of_range("Illegal dst, we only have "+to_string(cluster.GetTotalNodeCount())+" nodes");
                 }
                 std::cout << "Task "<< task->task_id<<" launched\n"; 
@@ -102,6 +103,7 @@ private:
                 client.running_tasks.insert(make_pair(task->task_id, task));
                 task_dispatched++;
             }
+
             simulator->printFlows();       
 
             auto completed_flows = simulator->RunToNextCompletion();
@@ -111,6 +113,8 @@ private:
                 auto &node = cluster.hosts[host_id];
                 if (node.running_tasks.find(flow->task->task_id) == node.running_tasks.end())
                     throw runtime_error("Task " + to_string(flow->task->task_id) + " not found.");
+                //TODO: if flows.empty() condition is the BUG!!!!
+                //flows are definitely finished, but flows here are not empty
                 auto &flows = node.running_tasks[flow->task->task_id]->flows;
                 flows.erase(remove(flows.begin(), flows.end(), flow->flow_id), flows.end());
                 if (flows.empty()) {
@@ -152,7 +156,7 @@ public:
 
     void Run() {
         ReadOneFile();
-        //simulator->PrintFlowCompletionTimes();
+        simulator->PrintFlowCompletionTimes();
         //PrintTaskCompletionTimes();
     }
 };

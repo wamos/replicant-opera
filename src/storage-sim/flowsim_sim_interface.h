@@ -32,7 +32,7 @@ private:
     std::mutex t_mutex;
     virtual void InitializeLinks() = 0;
     virtual std::vector<link_id_t> GetLinkIds(const Flow &flow) const = 0;
-    virtual void IncrementLinkFlowCount(const Flow &flow) = 0;
+    //virtual void IncrementLinkFlowCount(const Flow &flow) = 0;
     virtual double GetFlowRemainingTime(const Flow &flow) const = 0;
     virtual uint64_t GetTransmittedBytes(const Flow &flow, double interval) const = 0;
 
@@ -54,12 +54,15 @@ private:
                     // Check for earliest arrival flow
                     std::cout << std::fixed << "Check for earliest arrival flow, ";
                     next_time = flow.time_start - time_now;
-                    std::cout << std::fixed << "next_time:" << next_time << "\n";
+                    std::cout << std::fixed << "Flow Arrival Time:" << next_time << "\n";
                 } else if (!flow.IsCompleted()) {   // Existing flow
                     // Check for earliest finish
-                    std::cout << std::fixed << "Check for earliest finish, " ;
+                    std::cout << std::fixed << "Check for earliest finish, flow " ;
                     next_time = GetFlowRemainingTime(flow);
-                    std::cout << std::fixed << "next_time:" << next_time << "\n";
+                    //std::cout << "----------------\n" ;
+                    std::cout << flow.src_host << "->" << flow.dst_host << "\n";
+                    std::cout << std::fixed << "Flow Remaining Time:" << next_time;
+                    std::cout << "\n----------------\n";
                 } else {
                     continue;
                 }
@@ -79,6 +82,8 @@ private:
                 flow_next = local_flow_next;
             }
         });
+
+        std::cout << "the next flow" << flow_next->src_host << "->" << flow_next->dst_host << "\n";
 
         return flow_next != nullptr;
     }
@@ -124,6 +129,39 @@ protected:
         return host_id / hosts_per_rack;
     }
 
+    double checkLinkCapacity(const Flow &flow, int channel, double proposed_capacity, int slice){
+        double min_cap = std::numeric_limits<double>::max();
+        for (auto &link_id: GetLinkIds(flow)) {
+            double cap = links.at(link_id).getAvailCapacity(channel, slice);
+            if( cap < min_cap){
+                min_cap = cap;
+            }
+        }
+
+        if(min_cap < proposed_capacity){
+            return min_cap;
+        }
+        else{
+            return proposed_capacity;
+        }
+    }
+
+    void updateLinkCapacity(const Flow &flow, int channel, double used_capacity, int slice){
+        for (auto &link_id: GetLinkIds(flow)) {
+            links.at(link_id).ReduceAvailCapacity(channel, slice, used_capacity);
+        }
+    }
+
+    double getLinkCapacity(std::vector<link_id_t> link_vec, int channel, int slice){
+        std::vector<double> link_cap;
+        for (auto &link_id: link_vec) {
+            double cap = links.at(link_id).getAvailCapacity(channel, slice);
+            link_cap.push_back(cap);
+        }        
+        return *min_element(link_cap.begin(), link_cap.end());
+    }
+
+    //MAYBE: fix with host-ToR-RS
     double GetFlowRate(const Flow &flow, std::tuple<int, int> channels, int slot) const {
         std::vector<double> rates;
         int src_channel = std::get<0>(channels);
@@ -178,14 +216,18 @@ public:
 
     void printFlows(){
         for(Flow f: flows){
+            if (!f.HasStarted(time_now) || f.IsCompleted()){
+                continue;
+            }
             std::cout << "flowid" << f.flow_id <<"src:"<< f.src_host <<", dst:" << f.dst_host << "\n";
         }
     }
 
     std::vector<const Flow *> RunToNextCompletion() {
         UpdateLinkDemand();
-        
-        std::exit(0);
+
+        //TODO: get rid of this when it's done
+        //std::exit(0);
 
         if (!GetNextFlowEvent()){
             std::cout<< "no next flow event\n";
@@ -194,15 +236,19 @@ public:
 
         double interval = min_next_time;
         double time_end = time_now + interval;
-        fprintf(stderr, "Running sim for %f time.\n", interval);
+        //fprintf(stderr, "running_sim_for %f time.\n", interval);
+        std::cout<< "running_sim_for "<<  interval << " time\n";
         parallel_for(flows.size(), [this, interval, time_end](size_t start, size_t end) {
             std::vector<const Flow *> completed_flows;
             for (size_t i = start; i < end; i++) {
                 auto &flow = flows[i];
                 if (flow.HasStarted(time_now) && !flow.IsCompleted()) {
+                    std::cout << "flowid" << flow.flow_id <<"src:"<< flow.src_host <<", dst:" << flow.dst_host << "\n";
                     uint64_t transmitted_bytes = GetTransmittedBytes(flow, interval);
+                    //std::cout << "transmits"<< +transmitted_bytes <<"\n";
                     flow.completed_bytes += transmitted_bytes;
                     if (flow.IsCompleted()) {
+                        std::cout << "flowid" << flow.flow_id <<"src:"<< flow.src_host <<", dst:" << flow.dst_host << " is_completed\n";
                         flow.time_end = time_end;
                         completed_flows.push_back(&flow);
                     }
